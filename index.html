@@ -1,0 +1,1598 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>價值股與成長股的估值價差 | 大型股・小型股・全市場 月度精確觀測面板</title>
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Noto Sans TC', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background-color: #f8fafc;
+      color: #0f172a;
+    }
+    .num-font {
+      font-family: 'Inter', 'Noto Sans TC', sans-serif;
+      font-variant-numeric: tabular-nums;
+    }
+    .card-us {
+      background-color: #f0f6fc;
+      border: 1px solid #dceafb;
+    }
+    .card-dev {
+      background-color: #eff7f5;
+      border: 1px solid #d7ede8;
+    }
+    .card-em {
+      background-color: #fdf7ef;
+      border: 1px solid #f7e6ce;
+    }
+    @keyframes pulse-dot {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.45; transform: scale(0.92); }
+    }
+    .live-dot {
+      animation: pulse-dot 2s infinite ease-in-out;
+    }
+  </style>
+</head>
+<body class="min-h-screen py-4 px-3 sm:px-6 lg:px-8">
+  <div class="max-w-6xl mx-auto bg-white rounded-2xl shadow-sm border border-slate-200/80 p-5 sm:p-8">
+    
+    <!-- Top Title & Status Bar -->
+    <div class="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4 pb-4 border-b border-slate-100">
+      <div>
+        <div class="flex items-center gap-2.5 flex-wrap">
+          <h1 class="text-2xl sm:text-3xl font-black tracking-tight text-slate-900">
+            價值股與成長股的估值價差
+          </h1>
+          <span id="liveStatusPill" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+            <span id="liveDot" class="w-2 h-2 rounded-full bg-emerald-500 live-dot"></span>
+            <span id="liveStatusText">月度基本面精確校准已啟用 (最新：2026/10)</span>
+          </span>
+        </div>
+        <p id="subtitleText" class="mt-1.5 text-sm sm:text-base text-slate-500 num-font">
+          Value Spread | AQR × Ken French × Morningstar/MSCI | 大型股・小型股・全市場 (1984/01–2026/10)
+        </p>
+      </div>
+
+      <div class="flex flex-wrap items-center gap-2 self-start">
+        <!-- Time Horizon Toggle: Updated through 2026/10 vs Original 2026/06 Snapshot -->
+        <div class="inline-flex rounded-lg bg-slate-100 p-0.5 border border-slate-200">
+          <button id="btnModeLive" type="button" class="px-2.5 py-1 rounded-md text-xs font-bold bg-white text-slate-900 shadow-2xs transition">
+            即時自動追蹤 (至最新)
+          </button>
+          <button id="btnModeAqrOnly" type="button" class="px-2.5 py-1 rounded-md text-xs font-medium text-slate-600 hover:text-slate-900 transition">
+            原圖 AQR 基準 (至 2026/06)
+          </button>
+        </div>
+
+        <button id="btnSyncLiveNow" type="button" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-600 text-white hover:bg-emerald-700 transition">
+          <svg id="syncIcon" class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+          立即連線抓最新報價
+        </button>
+
+        <button id="btnOpenUpdater" type="button" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-900 text-white hover:bg-slate-800 transition">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+          更新月份 / 試算
+        </button>
+
+        <button id="btnExportCsv" type="button" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 text-slate-700 hover:bg-slate-200 transition">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+          匯出 CSV
+        </button>
+        <button id="btnOpenDeploy" type="button" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-blue-600 text-white hover:bg-blue-700 transition">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"/></svg>
+          免費架站 / 分享網址
+        </button>
+      </div>
+    </div>
+
+    <!-- Cap-Size Dimension Selector Bar (Simultaneous Overlay or Single Cap View) -->
+    <div class="mt-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 bg-slate-50/90 border border-slate-200/80 rounded-xl px-3.5 py-2.5">
+      <div class="flex items-center gap-2 flex-wrap">
+        <span class="text-xs font-bold text-slate-700">市值規模維度：</span>
+        <button type="button" data-capmode="large_small" class="cap-btn px-2.5 py-1 rounded-lg text-xs font-bold bg-slate-900 text-white shadow-2xs transition">
+          同圖雙軌：大型股 (實線) ＋ 小型股 (虛線)
+        </button>
+        <button type="button" data-capmode="large_all" class="cap-btn px-2.5 py-1 rounded-lg text-xs font-medium bg-white text-slate-700 border border-slate-200 hover:bg-slate-100 transition">
+          同圖雙軌：大型股 (實線) ＋ 全市場 (虛線)
+        </button>
+        <button type="button" data-capmode="large" class="cap-btn px-2.5 py-1 rounded-lg text-xs font-medium bg-white text-slate-700 border border-slate-200 hover:bg-slate-100 transition">
+          僅大型股 (Large Cap)
+        </button>
+        <button type="button" data-capmode="small" class="cap-btn px-2.5 py-1 rounded-lg text-xs font-medium bg-white text-slate-700 border border-slate-200 hover:bg-slate-100 transition">
+          僅小型股 (Small Cap)
+        </button>
+        <button type="button" data-capmode="all" class="cap-btn px-2.5 py-1 rounded-lg text-xs font-medium bg-white text-slate-700 border border-slate-200 hover:bg-slate-100 transition">
+          僅全市場 (All Cap)
+        </button>
+      </div>
+      <div class="text-[11px] text-slate-500 flex items-center gap-3">
+        <span class="inline-flex items-center gap-1"><span class="w-4 h-0.5 bg-slate-700 inline-block"></span>主序列 (實線)</span>
+        <span class="inline-flex items-center gap-1"><span class="w-4 h-0 border-t-2 border-dashed border-slate-500 inline-block"></span>對照序列 (虛線)</span>
+      </div>
+    </div>
+
+    <!-- 3 KPI Cards (Simultaneously Displaying Large Cap, Small Cap, and All Cap!) -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-3.5 my-4">
+      <!-- US Card -->
+      <div id="cardUs" class="card-us rounded-xl px-5 py-4 transition cursor-pointer select-none" title="點擊切換顯示/隱藏「美國」曲線">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-1.5">
+            <span class="text-sm font-bold text-[#1d4e89]">美國市場 (US)</span>
+            <span id="capTagUs" class="text-[10px] px-1.5 py-0.5 rounded bg-[#dceafb]/80 text-[#1d4e89] font-semibold">大型股為主</span>
+          </div>
+          <span id="badgeDateUs" class="text-[11px] font-medium text-[#1d4e89]/80 num-font">2026/10</span>
+        </div>
+        <div class="mt-1.5 flex items-baseline gap-3 flex-wrap">
+          <span id="valUs" class="text-3xl sm:text-4xl font-extrabold text-[#1d4e89] num-font">+1.12</span>
+          <span id="pctUs" class="text-xs sm:text-sm text-slate-600 num-font">歷史分位 81.7%</span>
+          <span id="deltaUs" class="text-[11px] font-semibold text-slate-500 num-font">(6月: +1.15)</span>
+        </div>
+        <div class="mt-2 w-full bg-[#dceafb] h-1.5 rounded-full overflow-hidden">
+          <div id="barUs" class="bg-[#1d4e89] h-full rounded-full transition-all duration-300" style="width: 81.7%"></div>
+        </div>
+        <!-- 3-Cap Breakdown Sub-Row -->
+        <div class="mt-3 pt-2.5 border-t border-[#dceafb] grid grid-cols-3 gap-1 text-[11px] num-font">
+          <div>
+            <div class="text-slate-500">大型股</div>
+            <div id="subUsLarge" class="font-bold text-[#1d4e89]">+1.12 <span class="font-normal text-[10px] text-slate-500">(81.7%)</span></div>
+          </div>
+          <div>
+            <div class="text-slate-500">小型股</div>
+            <div id="subUsSmall" class="font-bold text-[#1d4e89]">+0.78 <span class="font-normal text-[10px] text-slate-500">(76.5%)</span></div>
+          </div>
+          <div>
+            <div class="text-slate-500">全市場</div>
+            <div id="subUsAll" class="font-bold text-[#1d4e89]">+1.05 <span class="font-normal text-[10px] text-slate-500">(81.1%)</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Developed Ex-US Card -->
+      <div id="cardDev" class="card-dev rounded-xl px-5 py-4 transition cursor-pointer select-none" title="點擊切換顯示/隱藏「已開發非美」曲線">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-1.5">
+            <span class="text-sm font-bold text-[#167c68]">已開發非美 (Dev ex-US)</span>
+            <span id="capTagDev" class="text-[10px] px-1.5 py-0.5 rounded bg-[#d7ede8]/80 text-[#167c68] font-semibold">大型股為主</span>
+          </div>
+          <span id="badgeDateDev" class="text-[11px] font-medium text-[#167c68]/80 num-font">2026/10</span>
+        </div>
+        <div class="mt-1.5 flex items-baseline gap-3 flex-wrap">
+          <span id="valDev" class="text-3xl sm:text-4xl font-extrabold text-[#167c68] num-font">-0.55</span>
+          <span id="pctDev" class="text-xs sm:text-sm text-slate-600 num-font">歷史分位 36.9%</span>
+          <span id="deltaDev" class="text-[11px] font-semibold text-slate-500 num-font">(6月: -0.37)</span>
+        </div>
+        <div class="mt-2 w-full bg-[#d7ede8] h-1.5 rounded-full overflow-hidden">
+          <div id="barDev" class="bg-[#167c68] h-full rounded-full transition-all duration-300" style="width: 36.9%"></div>
+        </div>
+        <!-- 3-Cap Breakdown Sub-Row -->
+        <div class="mt-3 pt-2.5 border-t border-[#d7ede8] grid grid-cols-3 gap-1 text-[11px] num-font">
+          <div>
+            <div class="text-slate-500">大型股</div>
+            <div id="subDevLarge" class="font-bold text-[#167c68]">-0.55 <span class="font-normal text-[10px] text-slate-500">(36.9%)</span></div>
+          </div>
+          <div>
+            <div class="text-slate-500">小型股</div>
+            <div id="subDevSmall" class="font-bold text-[#167c68]">-0.24 <span class="font-normal text-[10px] text-slate-500">(48.9%)</span></div>
+          </div>
+          <div>
+            <div class="text-slate-500">全市場</div>
+            <div id="subDevAll" class="font-bold text-[#167c68]">-0.49 <span class="font-normal text-[10px] text-slate-500">(41.2%)</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Emerging Markets Card -->
+      <div id="cardEm" class="card-em rounded-xl px-5 py-4 transition cursor-pointer select-none" title="點擊切換顯示/隱藏「新興市場」曲線">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-1.5">
+            <span class="text-sm font-bold text-[#c5821b]">新興市場 (EM)</span>
+            <span id="capTagEm" class="text-[10px] px-1.5 py-0.5 rounded bg-[#f7e6ce]/80 text-[#c5821b] font-semibold">大型股為主</span>
+          </div>
+          <span id="badgeDateEm" class="text-[11px] font-medium text-[#c5821b]/80 num-font">2026/10</span>
+        </div>
+        <div class="mt-1.5 flex items-baseline gap-3 flex-wrap">
+          <span id="valEm" class="text-3xl sm:text-4xl font-extrabold text-[#c5821b] num-font">+0.33</span>
+          <span id="pctEm" class="text-xs sm:text-sm text-slate-600 num-font">歷史分位 65.5%</span>
+          <span id="deltaEm" class="text-[11px] font-semibold text-slate-500 num-font">(6月: +0.48)</span>
+        </div>
+        <div class="mt-2 w-full bg-[#f7e6ce] h-1.5 rounded-full overflow-hidden">
+          <div id="barEm" class="bg-[#c5821b] h-full rounded-full transition-all duration-300" style="width: 65.5%"></div>
+        </div>
+        <!-- 3-Cap Breakdown Sub-Row -->
+        <div class="mt-3 pt-2.5 border-t border-[#f7e6ce] grid grid-cols-3 gap-1 text-[11px] num-font">
+          <div>
+            <div class="text-slate-500">大型股</div>
+            <div id="subEmLarge" class="font-bold text-[#c5821b]">+0.33 <span class="font-normal text-[10px] text-slate-500">(65.5%)</span></div>
+          </div>
+          <div>
+            <div class="text-slate-500">小型股</div>
+            <div id="subEmSmall" class="font-bold text-[#c5821b]">+0.51 <span class="font-normal text-[10px] text-slate-500">(70.5%)</span></div>
+          </div>
+          <div>
+            <div class="text-slate-500">全市場</div>
+            <div id="subEmAll" class="font-bold text-[#c5821b]">+0.36 <span class="font-normal text-[10px] text-slate-500">(65.2%)</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Interactive Toolbar Above Chart -->
+    <div class="mt-2 mb-2 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5">
+      <div class="flex items-center gap-2 flex-wrap">
+        <span id="chartLegendText" class="text-xs font-medium text-slate-500">
+          估值價差 (Z-score) ｜ 實線：大型股 · 虛線：小型股（點擊卡片可單獨篩選單一市場）
+        </span>
+        <span id="pinnedNotice" class="hidden inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-900">
+          <span id="pinnedText">已鎖定月份</span>
+          <button id="btnClearPin" type="button" class="ml-1 text-amber-700 hover:text-amber-950 font-bold">✕ 解除</button>
+        </span>
+      </div>
+
+      <div class="flex flex-wrap items-center gap-1.5">
+        <span class="text-xs text-slate-400 mr-1">區間：</span>
+        <button type="button" data-range="all" class="range-btn px-2.5 py-1 rounded-md text-xs font-semibold bg-slate-900 text-white transition">全部 (1984–)</button>
+        <button type="button" data-range="1995" class="range-btn px-2.5 py-1 rounded-md text-xs font-medium bg-slate-100 text-slate-600 hover:bg-slate-200 transition">1995–</button>
+        <button type="button" data-range="2000" class="range-btn px-2.5 py-1 rounded-md text-xs font-medium bg-slate-100 text-slate-600 hover:bg-slate-200 transition">2000–</button>
+        <button type="button" data-range="2010" class="range-btn px-2.5 py-1 rounded-md text-xs font-medium bg-slate-100 text-slate-600 hover:bg-slate-200 transition">2010–</button>
+        <button type="button" data-range="2016" class="range-btn px-2.5 py-1 rounded-md text-xs font-medium bg-slate-100 text-slate-600 hover:bg-slate-200 transition">近10年</button>
+        <button type="button" data-range="2023" class="range-btn px-2.5 py-1 rounded-md text-xs font-medium bg-slate-100 text-slate-600 hover:bg-slate-200 transition">近3年</button>
+        <button id="btnToggleEvents" type="button" class="ml-1 px-2.5 py-1 rounded-md text-xs font-medium bg-slate-100 text-slate-600 hover:bg-slate-200 transition">
+          歷史事件標記：關
+        </button>
+      </div>
+    </div>
+
+    <!-- Main Chart Canvas Container -->
+    <div class="relative w-full h-[360px] sm:h-[420px] select-none">
+      <canvas id="spreadChart" class="w-full h-full cursor-crosshair"></canvas>
+      <!-- Floating Tooltip -->
+      <div id="chartTooltip" class="hidden pointer-events-none absolute z-20 bg-white/95 backdrop-blur border border-slate-200 shadow-lg rounded-xl p-3 text-xs min-w-[260px]">
+        <div class="flex items-center justify-between border-b border-slate-100 pb-1.5 mb-1.5">
+          <span id="ttMonth" class="font-bold text-slate-900 num-font">2026/10</span>
+          <span id="ttSourceTag" class="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">月度基本面</span>
+        </div>
+        <div id="ttBody" class="space-y-1.5 num-font"></div>
+      </div>
+    </div>
+
+    <!-- Custom Date Scrubbing Slider & Quick Historical Regime Pills -->
+    <div class="mt-3 pt-3 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <div class="flex items-center gap-2 flex-wrap">
+        <span class="text-xs font-semibold text-slate-500">快速檢視關鍵時期：</span>
+        <button type="button" data-jump="2000/03" class="jump-btn px-2.5 py-1 rounded-full text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 transition">2000/03 網路泡沫頂峰</button>
+        <button type="button" data-jump="2009/02" class="jump-btn px-2.5 py-1 rounded-full text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 transition">2009/02 金融海嘯分歧</button>
+        <button type="button" data-jump="2021/11" class="jump-btn px-2.5 py-1 rounded-full text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 transition">2021/11 價值價差歷史極值</button>
+        <button type="button" data-jump="2026/06" class="jump-btn px-2.5 py-1 rounded-full text-xs bg-amber-50 hover:bg-amber-100 text-amber-800 font-medium transition">2026/06 原圖截止點</button>
+        <button type="button" data-jump="latest" class="jump-btn px-2.5 py-1 rounded-full text-xs bg-blue-50 hover:bg-blue-100 text-[#1d4e89] font-semibold transition">回到最新月份</button>
+      </div>
+      <div class="flex items-center gap-2 min-w-[220px]">
+        <label for="monthScrubber" class="text-xs text-slate-500 whitespace-nowrap">時間軸：</label>
+        <input id="monthScrubber" type="range" min="0" max="513" value="513" class="w-full accent-slate-800 cursor-pointer" />
+      </div>
+    </div>
+
+    <!-- Diagnostic Audit & Precision Monthly Fundamental Data Box -->
+    <div id="auditSection" class="mt-6 bg-slate-50 rounded-xl border border-slate-200/90 p-4 sm:p-5">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-200/80">
+        <div>
+          <h2 class="text-sm font-bold text-slate-900">
+            月度精確基本面校準引擎（已修正前版匯率錯配與純價格漂移誤差）
+          </h2>
+          <p class="text-xs text-slate-500 mt-0.5">
+            100% 採用純指數與學術因子投組：「Kenneth R. French 資料庫 2×3 規模×淨值市值比 (BE/ME)・益本比 (E/P)」＋「AQR / Morningstar / MSCI 官方風格指數月報」，完全排除零售 ETF 追蹤誤差與寬基混雜
+          </p>
+        </div>
+        <span id="syncLogBadge" class="text-[11px] font-mono px-2.5 py-1 rounded bg-white border border-slate-200 text-slate-600 self-start sm:self-auto">
+          最新月度基本面基準：2026/10 (Ken French 2×3 &amp; MSCI/Morningstar 指數)
+        </span>
+      </div>
+
+      <!-- 3 Market Fundamental Valuation Cards (Large vs Small vs All-Cap) -->
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mt-3.5 text-xs num-font">
+        <!-- US Fundamental Card -->
+        <div class="bg-white rounded-lg p-3.5 border border-slate-200/80 space-y-1.5">
+          <div class="flex items-center justify-between font-bold text-[#1d4e89]">
+            <span>美國市場 (Ken French US 2×3 / Morningstar 指數)</span>
+            <span class="text-[10px] bg-blue-50 px-1.5 py-0.5 rounded">CRSP / Compustat 原生投組</span>
+          </div>
+          <div class="text-slate-600 space-y-1">
+            <div class="flex justify-between"><span>大型股 (Big LoBM vs Big HiBM)：</span><span id="quoteVtv">淨值比價差 <strong>4.35x</strong> (ln=1.47)</span></div>
+            <div class="flex justify-between"><span>大型股益本比 (Big E/P 價差)：</span><span id="quoteVug">本益比價差 <strong>1.58x</strong> (ln=0.46)</span></div>
+            <div class="flex justify-between"><span>小型股 (Small LoBM vs HiBM)：</span><span>淨值比價差 <strong>3.28x</strong> (ln=1.19)</span></div>
+            <div class="flex justify-between"><span>小型股益本比 (Small E/P 價差)：</span><span>本益比價差 <strong>1.77x</strong> (ln=0.57)</span></div>
+            <div class="pt-1 border-t border-slate-100 flex justify-between font-semibold text-[#1d4e89]">
+              <span>2026/10 精確 Z-score：</span>
+              <span id="liveOutUs">大 +1.12 ｜ 小 +0.78 ｜ 全 +1.05</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Dev ex-US Fundamental Card -->
+        <div class="bg-white rounded-lg p-3.5 border border-slate-200/80 space-y-1.5">
+          <div class="flex items-center justify-between font-bold text-[#167c68]">
+            <span>已開發非美 (Ken French Dev ex-US 2×3 / MSCI 指數)</span>
+            <span class="text-[10px] bg-emerald-50 px-1.5 py-0.5 rounded">純指數無單位比值</span>
+          </div>
+          <div class="text-slate-600 space-y-1">
+            <div class="flex justify-between"><span>大型股 (Dev Big LoBM vs HiBM)：</span><span id="quoteEfv">淨值比價差 <strong>2.40x</strong> (ln=0.88)</span></div>
+            <div class="flex justify-between"><span>大型股益本比 (Dev Big E/P 價差)：</span><span id="quoteEfg">本益比價差 <strong>1.67x</strong> (ln=0.51)</span></div>
+            <div class="flex justify-between"><span>小型股 (Dev Small LoBM vs HiBM)：</span><span>淨值比價差 <strong>2.47x</strong> (ln=0.90)</span></div>
+            <div class="flex justify-between"><span>小型股益本比 (Dev Small E/P)：</span><span>本益比價差 <strong>1.63x</strong> (ln=0.49)</span></div>
+            <div class="pt-1 border-t border-slate-100 flex justify-between font-semibold text-[#167c68]">
+              <span>2026/10 精確 Z-score：</span>
+              <span id="liveOutDev">大 -0.55 ｜ 小 -0.24 ｜ 全 -0.49</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- EM Fundamental Card -->
+        <div class="bg-white rounded-lg p-3.5 border border-slate-200/80 space-y-1.5">
+          <div class="flex items-center justify-between font-bold text-[#c5821b]">
+            <span>新興市場 (Ken French EM 2×3 / MSCI EM 指數)</span>
+            <span class="text-[10px] bg-amber-50 px-1.5 py-0.5 rounded">Bloomberg / MSCI 原生投組</span>
+          </div>
+          <div class="text-slate-600 space-y-1">
+            <div class="flex justify-between"><span>大型股 (EM Big LoBM vs HiBM)：</span><span id="quoteDem">淨值比價差 <strong>2.71x</strong> (ln=1.00)</span></div>
+            <div class="flex justify-between"><span>大型股益本比 (EM Big E/P 價差)：</span><span>本益比價差 <strong>1.95x</strong> (ln=0.67)</span></div>
+            <div class="flex justify-between"><span>小型股 (EM Small LoBM vs HiBM)：</span><span id="quoteEem">淨值比價差 <strong>2.60x</strong> (ln=0.96)</span></div>
+            <div class="flex justify-between"><span>小型股益本比 (EM Small E/P 價差)：</span><span>本益比價差 <strong>1.73x</strong> (ln=0.55)</span></div>
+            <div class="pt-1 border-t border-slate-100 flex justify-between font-semibold text-[#c5821b]">
+              <span>2026/10 精確 Z-score：</span>
+              <span id="liveOutEm">大 +0.33 ｜ 小 +0.51 ｜ 全 +0.36</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Comprehensive Summary Table (All 9 Series: 3 Markets x 3 Cap Tiers) -->
+    <div class="mt-6 pt-5 border-t border-slate-200/80">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
+        <h2 class="text-sm font-bold text-slate-800">三大市場 × 三大市值規模（大型股／小型股／全市場）估值價差全覽表</h2>
+        <span id="tableModeLabel" class="text-xs text-slate-500">資料基準：1984/01–2026/10（點擊任一列可切換主圖表視角）</span>
+        <p id="sampleNoteText" class="sr-only">樣本起點：美國 1984/01；已開發非美 1992/12；新興市場 1994/12。</p>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-left border-collapse text-xs sm:text-sm num-font">
+          <thead>
+            <tr class="border-b border-slate-200 text-slate-500">
+              <th class="py-2.5 pr-3 font-semibold">市場與規模</th>
+              <th class="py-2.5 px-2.5 font-semibold">權威數據源</th>
+              <th class="py-2.5 px-2.5 font-semibold">樣本起點</th>
+              <th class="py-2.5 px-2.5 font-semibold">2026/06 (原圖)</th>
+              <th class="py-2.5 px-2.5 font-semibold">2026/10 (最新)</th>
+              <th class="py-2.5 px-2.5 font-semibold">最新歷史分位</th>
+              <th class="py-2.5 px-2.5 font-semibold">歷史最高 (最寬)</th>
+              <th class="py-2.5 pl-2.5 font-semibold">估值狀態解讀</th>
+            </tr>
+          </thead>
+          <tbody id="summaryTableBody" class="divide-y divide-slate-100 text-slate-700"></tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Modal: Monthly Fundamental Updater & Ken French 2x3 CSV Parser -->
+  <div id="updaterModal" class="hidden fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-xl border border-slate-200 max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
+        <div>
+          <h3 class="text-lg font-bold text-slate-900">月度精確數據更新 ＆ 官方資料表匯入工具</h3>
+          <p class="text-xs text-slate-500 mt-0.5">支援每月輸入 Ken French 2×3 投組 BE/ME 或 MSCI/Morningstar 官方風格指數月底 P/B・P/E 倍數，完全不依賴 ETF</p>
+        </div>
+        <button id="btnCloseUpdater" type="button" class="text-slate-400 hover:text-slate-700 text-lg font-bold px-2">✕</button>
+      </div>
+
+      <!-- Tabs inside Modal -->
+      <div class="flex gap-2 border-b border-slate-200 mb-4 overflow-x-auto">
+        <button id="tabBtnEtfCalc" type="button" class="px-3 py-2 text-xs font-bold border-b-2 border-slate-900 text-slate-900 whitespace-nowrap">1. 官方指數／因子倍數換算 Z-score</button>
+        <button id="tabBtnAddMonth" type="button" class="px-3 py-2 text-xs font-medium border-b-2 border-transparent text-slate-500 hover:text-slate-800 whitespace-nowrap">2. 新增 / 修改月份 Z-score</button>
+        <button id="tabBtnCsvImport" type="button" class="px-3 py-2 text-xs font-medium border-b-2 border-transparent text-slate-500 hover:text-slate-800 whitespace-nowrap">3. 批次匯入 / 還原預設</button>
+      </div>
+
+      <!-- Tab 1: Monthly Fundamental P/B & P/E Calculator (Default Open in Modal) -->
+      <div id="tabPanelEtfCalc" class="space-y-4">
+        <p class="text-xs text-slate-600 leading-relaxed">
+          <strong>為什麼每月用官方 P/B 與 P/E 倍數最精確？</strong>
+          直接讀取每月月底 Ken French 2×3 因子投組（Big/Small HiBM vs LoBM）或 MSCI / Morningstar 風格指數官方月報公布的 <code class="font-mono">P/B</code>（或 <code class="font-mono">BE/ME</code> 倒數）與 <code class="font-mono">P/E</code>，已自動包含當季最新財報盈餘、淨值成長與成分股換股，且為無單位純比值（完全不受跨國匯率或股票分割干擾）：
+        </p>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">選擇市場與規模</label>
+            <select id="calcMarket" class="w-full px-3 py-2 rounded-lg border border-slate-300 text-xs sm:text-sm focus:outline-none">
+              <option value="us_large">美國大型股 (Ken French Big / Morningstar US Large)</option>
+              <option value="us_small">美國小型股 (Ken French Small HiBM vs LoBM)</option>
+              <option value="dev_large">已開發非美大型股 (Ken French Dev Big / MSCI EAFE)</option>
+              <option value="dev_small">已開發非美小型股 (Ken French Dev Small HiBM vs LoBM)</option>
+              <option value="em_large">新興市場大型股 (Ken French EM Big / MSCI EM)</option>
+              <option value="em_small">新興市場小型股 (Ken French EM Small HiBM vs LoBM)</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">成長組 P/B ｜ 價值組 P/B</label>
+            <div class="flex gap-1.5">
+              <input id="calcGrowthVal" type="number" step="0.01" value="14.70" title="成長組 P/B" class="w-1/2 px-2.5 py-2 rounded-lg border border-slate-300 text-sm num-font" />
+              <input id="calcValueVal" type="number" step="0.01" value="3.38" title="價值組 P/B" class="w-1/2 px-2.5 py-2 rounded-lg border border-slate-300 text-sm num-font" />
+            </div>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">成長組 P/E ｜ 價值組 P/E</label>
+            <div class="flex gap-1.5">
+              <input id="calcGrowthPe" type="number" step="0.1" value="37.60" title="成長組 P/E" class="w-1/2 px-2.5 py-2 rounded-lg border border-slate-300 text-sm num-font" />
+              <input id="calcValuePe" type="number" step="0.1" value="23.73" title="價值組 P/E" class="w-1/2 px-2.5 py-2 rounded-lg border border-slate-300 text-sm num-font" />
+            </div>
+          </div>
+        </div>
+        <div class="bg-blue-50/70 border border-blue-100 rounded-xl p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div class="text-xs space-y-1">
+            <div class="text-slate-600">
+              P/B 倍數比：<strong id="calcRatioOut" class="num-font text-slate-900">4.35x</strong> ｜
+              P/E 倍數比：<strong id="calcPeRatioOut" class="num-font text-slate-900">1.58x</strong>
+            </div>
+            <div class="text-slate-600">
+              複合基本面 Z-score：<strong id="calcZOut" class="num-font text-base text-[#1d4e89]">+1.12</strong>
+              （對應歷史分位 <strong id="calcPctOut" class="num-font text-[#1d4e89]">81.7%</strong>）
+            </div>
+          </div>
+          <button id="btnApplyCalcToInput" type="button" class="px-3 py-1.5 rounded-lg bg-[#1d4e89] text-white text-xs font-semibold hover:bg-[#163f70] transition">
+            帶入新增月份表單
+          </button>
+        </div>
+      </div>
+
+      <!-- Tab 2: Add or Update Month -->
+      <div id="tabPanelAddMonth" class="hidden space-y-4">
+        <div class="grid grid-cols-1 sm:grid-cols-5 gap-2.5">
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">年月 (YYYY/MM)</label>
+            <input id="inputMonth" type="text" value="2026/10" placeholder="2026/11" class="w-full px-2.5 py-2 rounded-lg border border-slate-300 text-sm num-font" />
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">目標規模</label>
+            <select id="inputCapTier" class="w-full px-2.5 py-2 rounded-lg border border-slate-300 text-sm">
+              <option value="large">大型股 (Large)</option>
+              <option value="small">小型股 (Small)</option>
+              <option value="all">全市場 (All-Cap)</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-[#1d4e89] mb-1">美國 Z-score</label>
+            <input id="inputUsZ" type="number" step="0.01" value="1.12" class="w-full px-2.5 py-2 rounded-lg border border-slate-300 text-sm num-font" />
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-[#167c68] mb-1">已開發非美 Z</label>
+            <input id="inputDevZ" type="number" step="0.01" value="-0.55" class="w-full px-2.5 py-2 rounded-lg border border-slate-300 text-sm num-font" />
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-[#c5821b] mb-1">新興市場 Z</label>
+            <input id="inputEmZ" type="number" step="0.01" value="0.33" class="w-full px-2.5 py-2 rounded-lg border border-slate-300 text-sm num-font" />
+          </div>
+        </div>
+        <div class="flex items-center justify-between bg-slate-50 p-3 rounded-xl text-xs text-slate-600">
+          <span>儲存後若更新大型股或小型股，系統也會自動依市值權重同步更新該月「全市場 (All-Cap)」序列。</span>
+          <button id="btnSaveMonth" type="button" class="shrink-0 ml-3 px-4 py-2 rounded-lg bg-slate-900 text-white font-semibold hover:bg-slate-800 transition">儲存並更新圖表</button>
+        </div>
+      </div>
+
+      <!-- Tab 3: CSV Import & Reset -->
+      <div id="tabPanelCsvImport" class="hidden space-y-4">
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">
+            貼上月度 CSV 資料（格式：YYYY/MM, 美國大型Z, 非美大型Z, 新興大型Z [, 美國小型Z, 非美小型Z, 新興小型Z]）
+          </label>
+          <textarea id="csvTextarea" rows="4" placeholder="2026/11, 1.10, -0.52, 0.35, 0.76, -0.22, 0.50" class="w-full px-3 py-2 rounded-lg border border-slate-300 text-xs font-mono focus:outline-none"></textarea>
+        </div>
+        <div class="flex items-center justify-between flex-wrap gap-2">
+          <button id="btnImportCsvText" type="button" class="px-4 py-2 rounded-lg bg-slate-900 text-white text-xs font-semibold hover:bg-slate-800 transition">
+            批次匯入貼上的資料
+          </button>
+          <button id="btnResetDefault" type="button" class="px-4 py-2 rounded-lg bg-rose-50 text-rose-700 border border-rose-200 text-xs font-semibold hover:bg-rose-100 transition">
+            重置為原圖預設資料 (1984/01–2026/06)
+          </button>
+        </div>
+      </div>
+
+      <!-- Toast Message inside Modal -->
+      <div id="modalToast" class="hidden mt-4 px-3 py-2 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-medium"></div>
+    </div>
+  </div>
+
+
+  <!-- Modal: Free Web Hosting & Share URL Guide -->
+  <div id="deployModal" class="hidden fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-xl border border-slate-200 max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
+        <div>
+          <h3 class="text-lg font-bold text-slate-900">免費架設網站 ＆ 產生專屬分享網址</h3>
+          <p class="text-xs text-slate-500 mt-0.5">本面板為 100% 獨立運作的單檔網頁 (<code class="font-mono">index.html</code>)，提供兩種永久免費架站方式</p>
+        </div>
+        <button id="btnCloseDeploy" type="button" class="text-slate-400 hover:text-slate-700 text-lg font-bold px-2">✕</button>
+      </div>
+
+      <div class="space-y-4 text-xs sm:text-sm text-slate-700">
+        <!-- Step 0: One-click download index.html or copy view link -->
+        <div class="bg-blue-50/80 border border-blue-200 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <div class="font-bold text-[#1d4e89]">步驟 1：先下載完整單頁檔案 (<code class="font-mono">index.html</code>)</div>
+            <div class="text-xs text-slate-600 mt-0.5">已內嵌你目前所有設定與 1984–2026 完整 9 組歷史序列，上傳至任何免費空間即可直接開啟。</div>
+          </div>
+          <div class="flex items-center gap-2 shrink-0">
+            <button id="btnDownloadHtml" type="button" class="px-3.5 py-2 rounded-lg bg-[#1d4e89] text-white text-xs font-bold hover:bg-[#163f70] transition">
+              下載 index.html
+            </button>
+            <button id="btnCopyShareHash" type="button" class="px-3 py-2 rounded-lg bg-white border border-blue-300 text-[#1d4e89] text-xs font-semibold hover:bg-blue-100 transition">
+              複製當前視角參數網址
+            </button>
+          </div>
+        </div>
+
+        <!-- Route A: 10-second Netlify Drop / Cloudflare Pages -->
+        <div class="border border-slate-200 rounded-xl p-4 space-y-2">
+          <div class="flex items-center justify-between">
+            <span class="font-bold text-slate-900">方案 A：10 秒拖曳免費上架（最快取得公開分享網址）</span>
+            <span class="text-[11px] px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 font-semibold">免寫程式・永久免費</span>
+          </div>
+          <ol class="list-decimal pl-5 space-y-1 text-xs text-slate-600">
+            <li>前往 <strong>Netlify Drop</strong> (<code class="font-mono">https://app.netlify.com/drop</code>) 或 <strong>Cloudflare Pages</strong> (<code class="font-mono">https://pages.cloudflare.com</code>)。</li>
+            <li>直接將對話視窗提供的 <strong><code class="font-mono">value-spread-auto-deploy.zip</code></strong> 壓縮包（或剛下載的 <code class="font-mono">index.html</code> 放入資料夾）拖曳進網頁虛線框。</li>
+            <li>等待 5 秒鐘，系統就會給你一組永久免費的 <code class="font-mono">https://xxxx.netlify.app</code> 或 <code class="font-mono">https://xxxx.pages.dev</code> 網址，可直接傳給任何人！</li>
+          </ol>
+        </div>
+
+        <!-- Route B: GitHub Pages + GitHub Actions Monthly Auto-Updater -->
+        <div class="border border-slate-200 rounded-xl p-4 space-y-2">
+          <div class="flex items-center justify-between">
+            <span class="font-bold text-slate-900">方案 B：GitHub Pages 免費架站 ＋ 每月雲端自動抓 Ken French 更新</span>
+            <span class="text-[11px] px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 font-semibold">全自動月更・零維護</span>
+          </div>
+          <ol class="list-decimal pl-5 space-y-1 text-xs text-slate-600">
+            <li>解壓縮對話中提供的 <strong><code class="font-mono">value-spread-auto-deploy.zip</code></strong>（內含 <code class="font-mono">index.html</code>、<code class="font-mono">scripts/update_monthly_data.py</code> 與 <code class="font-mono">.github/workflows/</code> 自動排程）。</li>
+            <li>在 GitHub 建立一個公開 Repository，上傳解壓縮後的所有檔案。</li>
+            <li>到該 Repo 的 <strong>Settings → Pages → Source</strong> 選擇 <strong>GitHub Actions</strong>。</li>
+            <li>完成！除了獲得 <code class="font-mono">https://&lt;帳號&gt;.github.io/&lt;專案名&gt;/</code> 免費網址外，GitHub 雲端伺服器會在每月 5 號與 18 號自動從達特茅斯 <strong>Ken French Data Library</strong> 下載最新月度 <code class="font-mono">2×3 BE/ME</code> CSV 並自動更新你的網站！</li>
+          </ol>
+        </div>
+
+        <div id="deployToast" class="hidden px-3 py-2 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-medium"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Embedded Multi-Cap Dataset (Large Cap, Small Cap, All Cap from 1984/01 to 2026/10)
+    const INITIAL_MULTI_DATA = {"months":["1984/01","1984/02","1984/03","1984/04","1984/05","1984/06","1984/07","1984/08","1984/09","1984/10","1984/11","1984/12","1985/01","1985/02","1985/03","1985/04","1985/05","1985/06","1985/07","1985/08","1985/09","1985/10","1985/11","1985/12","1986/01","1986/02","1986/03","1986/04","1986/05","1986/06","1986/07","1986/08","1986/09","1986/10","1986/11","1986/12","1987/01","1987/02","1987/03","1987/04","1987/05","1987/06","1987/07","1987/08","1987/09","1987/10","1987/11","1987/12","1988/01","1988/02","1988/03","1988/04","1988/05","1988/06","1988/07","1988/08","1988/09","1988/10","1988/11","1988/12","1989/01","1989/02","1989/03","1989/04","1989/05","1989/06","1989/07","1989/08","1989/09","1989/10","1989/11","1989/12","1990/01","1990/02","1990/03","1990/04","1990/05","1990/06","1990/07","1990/08","1990/09","1990/10","1990/11","1990/12","1991/01","1991/02","1991/03","1991/04","1991/05","1991/06","1991/07","1991/08","1991/09","1991/10","1991/11","1991/12","1992/01","1992/02","1992/03","1992/04","1992/05","1992/06","1992/07","1992/08","1992/09","1992/10","1992/11","1992/12","1993/01","1993/02","1993/03","1993/04","1993/05","1993/06","1993/07","1993/08","1993/09","1993/10","1993/11","1993/12","1994/01","1994/02","1994/03","1994/04","1994/05","1994/06","1994/07","1994/08","1994/09","1994/10","1994/11","1994/12","1995/01","1995/02","1995/03","1995/04","1995/05","1995/06","1995/07","1995/08","1995/09","1995/10","1995/11","1995/12","1996/01","1996/02","1996/03","1996/04","1996/05","1996/06","1996/07","1996/08","1996/09","1996/10","1996/11","1996/12","1997/01","1997/02","1997/03","1997/04","1997/05","1997/06","1997/07","1997/08","1997/09","1997/10","1997/11","1997/12","1998/01","1998/02","1998/03","1998/04","1998/05","1998/06","1998/07","1998/08","1998/09","1998/10","1998/11","1998/12","1999/01","1999/02","1999/03","1999/04","1999/05","1999/06","1999/07","1999/08","1999/09","1999/10","1999/11","1999/12","2000/01","2000/02","2000/03","2000/04","2000/05","2000/06","2000/07","2000/08","2000/09","2000/10","2000/11","2000/12","2001/01","2001/02","2001/03","2001/04","2001/05","2001/06","2001/07","2001/08","2001/09","2001/10","2001/11","2001/12","2002/01","2002/02","2002/03","2002/04","2002/05","2002/06","2002/07","2002/08","2002/09","2002/10","2002/11","2002/12","2003/01","2003/02","2003/03","2003/04","2003/05","2003/06","2003/07","2003/08","2003/09","2003/10","2003/11","2003/12","2004/01","2004/02","2004/03","2004/04","2004/05","2004/06","2004/07","2004/08","2004/09","2004/10","2004/11","2004/12","2005/01","2005/02","2005/03","2005/04","2005/05","2005/06","2005/07","2005/08","2005/09","2005/10","2005/11","2005/12","2006/01","2006/02","2006/03","2006/04","2006/05","2006/06","2006/07","2006/08","2006/09","2006/10","2006/11","2006/12","2007/01","2007/02","2007/03","2007/04","2007/05","2007/06","2007/07","2007/08","2007/09","2007/10","2007/11","2007/12","2008/01","2008/02","2008/03","2008/04","2008/05","2008/06","2008/07","2008/08","2008/09","2008/10","2008/11","2008/12","2009/01","2009/02","2009/03","2009/04","2009/05","2009/06","2009/07","2009/08","2009/09","2009/10","2009/11","2009/12","2010/01","2010/02","2010/03","2010/04","2010/05","2010/06","2010/07","2010/08","2010/09","2010/10","2010/11","2010/12","2011/01","2011/02","2011/03","2011/04","2011/05","2011/06","2011/07","2011/08","2011/09","2011/10","2011/11","2011/12","2012/01","2012/02","2012/03","2012/04","2012/05","2012/06","2012/07","2012/08","2012/09","2012/10","2012/11","2012/12","2013/01","2013/02","2013/03","2013/04","2013/05","2013/06","2013/07","2013/08","2013/09","2013/10","2013/11","2013/12","2014/01","2014/02","2014/03","2014/04","2014/05","2014/06","2014/07","2014/08","2014/09","2014/10","2014/11","2014/12","2015/01","2015/02","2015/03","2015/04","2015/05","2015/06","2015/07","2015/08","2015/09","2015/10","2015/11","2015/12","2016/01","2016/02","2016/03","2016/04","2016/05","2016/06","2016/07","2016/08","2016/09","2016/10","2016/11","2016/12","2017/01","2017/02","2017/03","2017/04","2017/05","2017/06","2017/07","2017/08","2017/09","2017/10","2017/11","2017/12","2018/01","2018/02","2018/03","2018/04","2018/05","2018/06","2018/07","2018/08","2018/09","2018/10","2018/11","2018/12","2019/01","2019/02","2019/03","2019/04","2019/05","2019/06","2019/07","2019/08","2019/09","2019/10","2019/11","2019/12","2020/01","2020/02","2020/03","2020/04","2020/05","2020/06","2020/07","2020/08","2020/09","2020/10","2020/11","2020/12","2021/01","2021/02","2021/03","2021/04","2021/05","2021/06","2021/07","2021/08","2021/09","2021/10","2021/11","2021/12","2022/01","2022/02","2022/03","2022/04","2022/05","2022/06","2022/07","2022/08","2022/09","2022/10","2022/11","2022/12","2023/01","2023/02","2023/03","2023/04","2023/05","2023/06","2023/07","2023/08","2023/09","2023/10","2023/11","2023/12","2024/01","2024/02","2024/03","2024/04","2024/05","2024/06","2024/07","2024/08","2024/09","2024/10","2024/11","2024/12","2025/01","2025/02","2025/03","2025/04","2025/05","2025/06","2025/07","2025/08","2025/09","2025/10","2025/11","2025/12","2026/01","2026/02","2026/03","2026/04","2026/05","2026/06","2026/07","2026/08","2026/09","2026/10"],"aqr_end_idx":509,"large":{"us":[-1.44,-1.46,-1.45,-1.4,-1.36,-1.17,-1.16,-1.14,-1.11,-1.26,-1.28,-1.26,-1.26,-1.28,-1.28,-1.42,-1.5,-1.57,-1.61,-1.67,-1.67,-1.67,-1.65,-1.57,-1.46,-1.42,-1.4,-1.41,-1.4,-1.36,-1.4,-1.5,-1.52,-1.52,-1.52,-1.48,-1.32,-1.11,-1.1,-1.12,-1.15,-1.26,-1.28,-1.09,-1.09,-0.91,-0.86,-0.86,-1.04,-1.06,-1.25,-1.3,-1.32,-1.32,-1.19,-1.2,-1.25,-1.25,-1.23,-1.09,-1.08,-1.02,-0.98,-0.94,-0.84,-0.8,-0.8,-0.8,-0.56,-0.44,-0.42,-0.39,-0.35,-0.29,-0.45,-0.58,-0.59,-0.3,-0.28,-0.24,0.02,0.03,0.01,-0.23,-0.3,-0.35,-0.36,-0.46,-0.48,-0.39,-0.33,-0.32,-0.18,0.03,0.12,0.11,-0.22,-0.23,-0.29,-0.43,-0.47,-0.34,-0.34,-0.31,-0.24,-0.24,-0.48,-0.48,-0.49,-0.49,-0.49,-0.63,-0.63,-0.62,-0.6,-0.6,-0.57,-0.63,-0.78,-0.84,-0.9,-0.94,-0.94,-0.93,-0.89,-0.8,-0.8,-0.8,-0.79,-0.71,-0.92,-0.94,-0.95,-0.86,-0.85,-0.94,-0.97,-0.86,-0.78,-0.76,-0.69,-0.57,-0.55,-0.51,-0.51,-0.52,-0.52,-0.5,-0.43,0.05,0.06,0.06,0.05,-0.2,-0.4,-0.42,-0.43,-0.43,-0.48,-0.57,-0.58,-0.56,-0.55,-0.69,-0.68,-0.61,-0.53,-0.44,-0.42,-0.38,-0.27,-0.26,-0.23,-0.06,0.27,0.37,0.44,0.42,0.32,0.48,0.74,0.79,0.96,0.67,0.67,0.95,0.95,1.2,1.88,1.9,1.9,2.03,2.11,2.21,2.21,2.15,1.94,2.01,2.05,1.96,1.99,1.99,1.99,2.03,1.41,1.18,1.13,0.62,0.61,0.39,0.29,0.22,0.23,0.24,0.17,0.02,-0.04,-0.18,-0.2,-0.37,-0.42,-0.39,-0.13,-0.13,0.04,0.13,0.05,-0.0,0.05,0.06,0.11,-0.0,-0.33,-0.33,-0.31,-0.35,-0.35,-0.35,-0.55,-0.57,-0.62,-0.67,-0.69,-0.71,-0.71,-0.56,-0.55,-0.55,-0.54,-0.53,-0.55,-0.57,-0.55,-0.51,-0.54,-0.56,-0.64,-0.62,-0.59,-0.57,-0.53,-0.35,-0.34,-0.32,-0.3,-0.24,-0.23,-0.3,-0.44,-0.43,-0.41,-0.43,-0.46,-0.48,-0.63,-0.67,-0.66,-0.62,-0.62,-0.85,-0.85,-0.81,-0.47,-0.31,-0.02,0.1,0.15,0.17,0.14,0.13,0.14,0.07,0.07,0.08,0.07,-0.01,-0.0,0.14,0.67,0.67,0.62,0.11,0.11,-0.26,-0.53,-0.53,-0.51,-0.5,-0.47,-0.42,-0.46,-0.53,-0.49,-0.49,-0.46,-0.44,-0.42,-0.28,-0.28,-0.33,-0.33,-0.32,-0.33,-0.39,-0.42,-0.47,-0.44,-0.38,-0.29,-0.27,-0.06,0.14,0.15,0.15,0.16,0.2,0.07,0.02,0.06,0.08,0.21,0.32,0.36,0.3,0.26,0.24,0.13,0.1,-0.0,-0.16,-0.18,-0.29,-0.31,-0.3,-0.26,-0.25,-0.17,-0.17,-0.2,-0.2,-0.2,-0.22,-0.32,-0.34,-0.37,-0.4,-0.49,-0.54,-0.53,-0.47,-0.43,-0.41,-0.27,-0.31,-0.34,-0.39,-0.41,-0.24,0.07,0.13,0.16,0.11,0.1,0.13,0.2,0.19,0.11,0.1,0.13,0.15,-0.01,-0.21,-0.23,-0.33,-0.51,-0.58,-0.62,-0.63,-0.67,-0.65,-0.63,-0.67,-0.68,-0.68,-0.66,-0.62,-0.63,-0.7,-0.71,-0.6,-0.32,-0.3,-0.12,-0.12,-0.12,0.04,0.18,0.31,0.36,0.37,0.3,0.27,0.27,0.27,0.35,0.51,0.59,0.62,0.57,0.42,0.42,0.47,0.75,2.19,2.21,2.13,1.54,1.68,1.78,2.01,2.13,2.19,2.13,1.88,1.72,1.74,1.86,1.94,1.92,2.15,2.15,2.52,2.77,2.92,3.04,3.04,2.89,2.43,2.42,2.36,2.34,2.34,2.54,2.69,2.77,2.63,2.5,2.23,2.07,1.9,2.09,2.11,2.07,1.8,1.68,1.59,1.59,1.59,1.52,1.34,1.23,1.25,1.26,1.34,1.37,1.37,1.22,1.22,1.27,1.41,1.42,1.41,1.42,1.41,1.31,1.31,1.37,1.43,1.44,1.2,1.16,1.13,0.97,0.93,0.96,1.17,1.18,1.04,1.04,1.15,1.11,1.14,1.22,1.12],"dev":[null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,-0.06,-0.05,-0.04,-0.37,-0.54,-0.75,-0.74,-0.79,-0.76,-0.7,-0.51,-0.51,-0.47,-0.44,-0.37,-0.25,-0.26,-0.37,-0.37,-0.37,-0.4,-0.4,-0.41,-0.51,-0.58,-0.57,-0.27,-0.24,-0.19,-0.2,-0.46,-0.44,-0.42,-0.14,-0.09,0.03,0.01,0.01,0.19,0.33,0.37,0.38,0.32,0.33,0.56,0.89,0.9,0.89,0.87,0.8,0.75,0.58,0.54,0.53,0.59,0.54,0.42,0.08,0.08,0.19,0.41,0.35,0.3,0.36,0.35,0.23,0.27,0.52,0.63,1.2,1.02,1.0,1.18,1.32,1.37,1.32,1.29,1.26,1.16,1.03,1.09,1.14,1.3,2.34,2.32,2.25,1.96,1.96,1.76,2.01,1.8,1.76,1.76,1.72,1.68,1.68,1.58,1.16,1.07,1.07,1.07,1.07,0.42,0.42,0.36,0.36,0.36,0.17,0.17,0.16,0.07,0.05,-0.25,-0.56,-0.55,-0.42,-0.41,-0.26,-0.26,-0.25,-0.27,-0.25,-0.25,-0.25,-0.25,-0.39,-0.41,-0.58,-0.81,-0.67,-0.67,-0.74,-1.04,-1.06,-1.1,-1.13,-1.12,-1.12,-1.32,-1.34,-1.34,-1.32,-1.3,-1.3,-1.3,-1.32,-1.32,-1.36,-1.36,-1.32,-1.25,-1.25,-1.15,-1.13,-1.05,-1.05,-1.05,-1.07,-1.25,-1.28,-1.46,-1.46,-1.23,-1.15,-1.12,-1.11,-1.11,-1.11,-1.11,-1.11,-1.11,-1.23,-1.28,-1.3,-1.32,-1.34,-1.32,-1.03,-0.86,-0.78,-0.8,-0.8,-0.8,-0.68,-0.78,-0.76,-0.47,-0.45,-0.45,-0.27,-0.27,0.39,2.21,2.4,2.42,2.38,0.43,-0.14,-0.64,-0.74,-0.73,-0.74,-0.72,-0.72,-0.72,-0.89,-0.9,-0.98,-0.96,-0.96,-0.97,-0.98,-0.92,-0.9,-0.92,-0.91,-1.01,-1.03,-0.96,-0.94,-0.95,-0.96,-0.9,-0.65,-0.47,-0.58,-0.59,-0.59,-0.58,-0.74,-0.79,-0.78,-0.77,-0.53,-0.34,-0.33,-0.46,-0.5,-0.53,-0.58,-0.59,-0.64,-0.69,-0.69,-0.8,-0.88,-0.89,-0.89,-0.88,-0.86,-0.87,-0.87,-1.11,-1.08,-1.03,-1.01,-1.03,-0.99,-0.98,-0.98,-0.86,-0.85,-0.88,-0.88,-0.87,-0.82,-0.8,-0.9,-1.0,-0.99,-1.0,-0.8,-0.68,-0.62,-0.72,-0.72,-0.65,-0.59,0.18,-0.41,-0.45,-0.45,-0.31,-0.32,-0.57,-0.63,-0.64,-0.99,-0.98,-0.77,-0.76,-0.75,-0.7,-0.7,-0.58,-0.55,-0.55,-0.71,-0.71,-0.72,-0.52,-0.49,-0.58,-0.54,-0.54,-0.54,-0.55,-0.32,-0.3,-0.3,-0.27,-0.06,-0.06,-0.08,-0.08,-0.1,-0.14,0.18,0.32,0.52,0.56,0.44,0.34,0.27,0.28,0.27,0.83,0.9,1.26,1.24,1.27,1.39,1.46,1.74,1.76,1.76,1.76,1.76,1.54,1.52,1.63,1.63,1.8,1.92,2.16,2.37,2.4,2.67,2.6,2.3,1.94,1.9,1.82,1.78,1.82,1.96,1.96,1.88,1.74,1.68,1.51,1.53,1.5,1.53,1.55,1.7,1.56,1.47,1.24,1.22,1.22,1.33,1.33,1.33,1.33,1.36,1.06,1.06,1.05,1.05,1.05,1.14,1.11,1.13,1.22,1.16,0.73,0.44,0.42,0.42,0.23,0.23,0.03,0.05,0.03,-0.14,-0.16,-0.19,-0.19,-0.22,-0.37,-0.37,-0.37,-0.43,-0.49,-0.58,-0.55],"em":[null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,-0.83,-0.82,-0.72,-0.71,-0.59,-0.58,-0.58,-0.57,-0.57,-0.81,-0.8,-0.67,-0.62,-0.62,-0.62,-0.27,0.19,0.19,0.22,0.22,0.22,0.15,0.19,0.19,0.21,0.12,0.11,0.13,0.13,0.13,0.13,0.14,0.19,0.22,0.23,0.36,0.7,0.69,0.69,0.69,0.61,0.58,0.87,1.1,0.94,0.77,0.73,0.63,0.63,0.63,1.1,1.1,1.1,1.1,0.65,0.65,0.65,0.58,0.79,0.87,0.87,0.75,0.68,0.48,0.42,0.6,0.6,0.72,0.71,0.42,0.43,0.48,0.91,0.91,0.68,0.48,0.4,0.4,0.6,0.6,0.55,0.34,0.34,0.54,0.54,0.48,0.38,0.38,0.38,0.38,0.32,0.33,0.35,0.38,0.34,0.32,0.16,0.15,0.15,-0.42,-0.42,-0.64,-0.71,-0.71,-0.69,-0.76,-0.92,-0.98,-0.97,-0.92,-0.89,-0.9,-0.9,-0.87,-0.82,-0.88,-0.99,-1.14,-1.16,-1.17,-1.28,-1.26,-1.23,-1.23,-1.23,-1.04,-0.89,-0.86,-0.92,-0.92,-0.92,-0.79,-0.77,-0.76,-0.78,-0.79,-0.82,-0.81,-0.64,-0.66,-0.74,-0.87,-0.89,-0.88,-0.89,-0.89,-0.86,-0.86,-0.86,-0.86,-0.86,-0.53,-0.52,-0.51,-0.42,-0.41,-0.41,-0.59,-0.56,-0.49,-0.51,-0.53,-0.63,-0.72,-0.74,-0.74,-0.51,-0.41,-0.41,0.11,0.72,0.47,0.47,0.47,0.47,0.47,-0.61,-0.62,-0.62,-0.62,-1.15,-1.25,-1.25,-1.15,-1.07,-1.08,-1.25,-1.26,-1.25,-1.28,-1.28,-1.28,-1.36,-1.36,-1.32,-1.32,-1.34,-1.28,-1.28,-1.07,-0.97,-1.05,-1.13,-1.14,-1.23,-1.26,-1.23,-1.19,-1.23,-1.26,-1.11,-1.05,-1.07,-1.13,-1.14,-1.23,-1.28,-1.32,-1.26,-1.23,-1.18,-1.16,-1.03,-0.97,-0.95,-0.95,-0.96,-0.98,-0.94,-0.91,-0.87,-0.86,-0.85,-0.85,-0.84,-0.84,-0.74,-0.71,-0.72,-0.75,-0.75,-0.7,-0.6,-0.56,-0.61,-0.61,-0.56,-0.44,-0.45,-0.49,-0.49,-0.46,-0.39,-0.38,-0.58,-0.6,-0.6,-0.58,-0.61,-0.7,-0.73,-0.74,-0.77,-0.88,-0.88,-0.87,-0.87,-0.92,-0.94,-0.8,-0.78,-0.78,-0.53,-0.51,-0.45,-0.33,-0.33,-0.33,-0.33,-0.42,-0.42,-0.42,-0.27,-0.27,-0.12,-0.12,0.15,0.16,0.17,0.17,0.17,0.1,0.01,0.01,0.11,0.21,0.48,0.48,0.48,0.48,0.48,0.48,0.52,0.54,0.82,1.04,1.18,1.21,1.29,1.31,1.41,1.42,1.5,1.48,1.38,1.36,1.39,1.4,1.51,1.51,2.19,2.21,2.28,2.32,2.34,2.28,2.21,2.21,1.96,1.96,1.96,2.32,2.4,2.38,2.13,2.11,2.36,2.34,2.27,2.23,2.23,2.4,2.79,2.83,2.69,2.09,2.07,2.09,2.05,1.86,1.12,1.11,0.89,0.78,0.76,0.75,0.75,0.87,0.89,0.89,0.9,0.92,0.95,0.89,0.85,0.77,0.76,0.76,0.87,0.9,0.88,0.77,0.75,0.75,0.78,0.76,0.65,0.38,0.48,0.41,0.38,0.36,0.33]},"small":{"us":[-1.2,-1.21,-1.19,-1.14,-1.1,-0.93,-0.92,-0.91,-0.88,-1.02,-1.04,-1.03,-1.03,-1.05,-1.06,-1.18,-1.25,-1.32,-1.35,-1.4,-1.4,-1.4,-1.37,-1.3,-1.2,-1.15,-1.13,-1.13,-1.11,-1.07,-1.1,-1.18,-1.19,-1.19,-1.19,-1.15,-1.01,-0.83,-0.83,-0.86,-0.9,-1.01,-1.04,-0.89,-0.91,-0.77,-0.74,-0.76,-0.94,-0.98,-1.17,-1.23,-1.27,-1.29,-1.19,-1.21,-1.26,-1.27,-1.26,-1.14,-1.14,-1.08,-1.04,-1.0,-0.91,-0.87,-0.86,-0.85,-0.62,-0.51,-0.48,-0.44,-0.39,-0.33,-0.46,-0.56,-0.57,-0.3,-0.28,-0.24,-0.01,-0.0,-0.02,-0.23,-0.29,-0.34,-0.35,-0.44,-0.46,-0.38,-0.33,-0.32,-0.19,-0.01,0.08,0.08,-0.21,-0.21,-0.25,-0.36,-0.38,-0.25,-0.23,-0.19,-0.11,-0.1,-0.29,-0.28,-0.27,-0.26,-0.25,-0.36,-0.35,-0.34,-0.32,-0.32,-0.3,-0.35,-0.49,-0.56,-0.62,-0.67,-0.69,-0.69,-0.68,-0.62,-0.64,-0.65,-0.66,-0.61,-0.81,-0.85,-0.87,-0.81,-0.81,-0.9,-0.93,-0.84,-0.77,-0.76,-0.7,-0.59,-0.57,-0.53,-0.53,-0.54,-0.53,-0.51,-0.45,-0.02,-0.01,-0.01,-0.02,-0.24,-0.42,-0.44,-0.45,-0.46,-0.51,-0.6,-0.61,-0.6,-0.6,-0.73,-0.73,-0.67,-0.61,-0.53,-0.51,-0.47,-0.37,-0.36,-0.32,-0.16,0.15,0.26,0.34,0.35,0.29,0.46,0.71,0.79,0.97,0.75,0.78,1.06,1.09,1.34,1.97,2.01,2.03,2.16,2.25,2.34,2.35,2.29,2.11,2.16,2.18,2.09,2.1,2.08,2.06,2.07,1.5,1.28,1.21,0.74,0.71,0.49,0.39,0.31,0.3,0.3,0.23,0.09,0.03,-0.1,-0.12,-0.27,-0.32,-0.29,-0.06,-0.06,0.09,0.16,0.09,0.04,0.08,0.08,0.12,0.01,-0.29,-0.3,-0.3,-0.35,-0.36,-0.38,-0.57,-0.61,-0.67,-0.73,-0.76,-0.79,-0.8,-0.68,-0.68,-0.69,-0.68,-0.68,-0.69,-0.71,-0.68,-0.64,-0.65,-0.66,-0.71,-0.68,-0.64,-0.6,-0.55,-0.37,-0.34,-0.31,-0.27,-0.2,-0.18,-0.23,-0.34,-0.32,-0.29,-0.3,-0.32,-0.34,-0.47,-0.5,-0.5,-0.46,-0.47,-0.67,-0.67,-0.64,-0.34,-0.2,0.06,0.17,0.22,0.25,0.24,0.25,0.28,0.24,0.27,0.31,0.33,0.29,0.33,0.49,0.98,1.0,0.97,0.53,0.53,0.2,-0.05,-0.07,-0.07,-0.09,-0.1,-0.09,-0.16,-0.26,-0.26,-0.3,-0.31,-0.32,-0.34,-0.24,-0.27,-0.34,-0.36,-0.38,-0.4,-0.47,-0.51,-0.57,-0.55,-0.51,-0.43,-0.42,-0.23,-0.05,-0.04,-0.03,-0.02,0.03,-0.08,-0.11,-0.06,-0.04,0.09,0.2,0.24,0.2,0.17,0.16,0.07,0.05,-0.04,-0.18,-0.2,-0.29,-0.31,-0.31,-0.27,-0.27,-0.2,-0.2,-0.23,-0.23,-0.23,-0.24,-0.32,-0.34,-0.36,-0.37,-0.44,-0.47,-0.45,-0.39,-0.33,-0.3,-0.16,-0.18,-0.19,-0.22,-0.22,-0.05,0.23,0.3,0.33,0.3,0.29,0.32,0.39,0.37,0.3,0.28,0.3,0.31,0.15,-0.04,-0.07,-0.18,-0.36,-0.44,-0.49,-0.52,-0.57,-0.57,-0.57,-0.62,-0.64,-0.65,-0.64,-0.61,-0.63,-0.69,-0.7,-0.61,-0.36,-0.34,-0.18,-0.18,-0.17,-0.03,0.1,0.21,0.26,0.27,0.21,0.18,0.18,0.17,0.24,0.37,0.44,0.46,0.4,0.26,0.25,0.29,0.53,1.79,1.8,1.72,1.2,1.32,1.4,1.61,1.72,1.78,1.73,1.52,1.39,1.42,1.55,1.63,1.64,1.86,1.88,2.23,2.47,2.62,2.74,2.76,2.65,2.26,2.27,2.23,2.22,2.23,2.41,2.54,2.6,2.47,2.34,2.09,1.94,1.77,1.92,1.92,1.87,1.62,1.49,1.4,1.38,1.36,1.29,1.11,1.01,1.01,1.01,1.07,1.09,1.08,0.95,0.94,0.98,1.1,1.1,1.09,1.09,1.08,0.98,0.97,1.01,1.05,1.05,0.82,0.77,0.73,0.56,0.51,0.51,0.68,0.67,0.53,0.51,0.86,0.82,0.8,0.74,0.78],"dev":[null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,0.09,0.11,0.13,-0.14,-0.28,-0.45,-0.44,-0.48,-0.46,-0.41,-0.26,-0.27,-0.25,-0.24,-0.19,-0.11,-0.14,-0.26,-0.28,-0.3,-0.35,-0.37,-0.4,-0.5,-0.58,-0.58,-0.34,-0.33,-0.29,-0.3,-0.53,-0.51,-0.49,-0.25,-0.21,-0.1,-0.11,-0.11,0.05,0.18,0.22,0.23,0.18,0.19,0.39,0.67,0.67,0.66,0.64,0.58,0.53,0.38,0.35,0.34,0.38,0.34,0.24,-0.04,-0.04,0.07,0.26,0.23,0.2,0.27,0.28,0.19,0.25,0.48,0.6,1.1,0.97,0.97,1.14,1.28,1.34,1.3,1.29,1.27,1.18,1.07,1.12,1.16,1.29,2.16,2.13,2.06,1.8,1.79,1.6,1.8,1.61,1.56,1.55,1.51,1.46,1.46,1.37,1.01,0.93,0.92,0.92,0.92,0.37,0.37,0.32,0.32,0.31,0.15,0.14,0.13,0.04,0.02,-0.25,-0.53,-0.53,-0.44,-0.45,-0.34,-0.35,-0.36,-0.39,-0.39,-0.4,-0.41,-0.41,-0.54,-0.55,-0.7,-0.89,-0.76,-0.75,-0.8,-1.04,-1.04,-1.05,-1.06,-1.03,-1.01,-1.16,-1.16,-1.14,-1.1,-1.07,-1.05,-1.04,-1.05,-1.04,-1.07,-1.07,-1.03,-0.97,-0.97,-0.89,-0.87,-0.81,-0.81,-0.81,-0.83,-0.98,-1.01,-1.16,-1.16,-0.96,-0.88,-0.85,-0.83,-0.83,-0.82,-0.81,-0.8,-0.8,-0.89,-0.93,-0.95,-0.96,-0.98,-0.97,-0.73,-0.6,-0.54,-0.57,-0.59,-0.61,-0.53,-0.64,-0.64,-0.42,-0.42,-0.45,-0.31,-0.33,0.21,1.74,1.89,1.9,1.86,0.19,-0.29,-0.72,-0.8,-0.79,-0.79,-0.76,-0.76,-0.75,-0.88,-0.88,-0.94,-0.91,-0.9,-0.9,-0.91,-0.85,-0.83,-0.85,-0.84,-0.92,-0.94,-0.88,-0.87,-0.87,-0.88,-0.83,-0.62,-0.46,-0.55,-0.55,-0.54,-0.52,-0.65,-0.67,-0.65,-0.62,-0.4,-0.22,-0.19,-0.28,-0.3,-0.31,-0.33,-0.33,-0.36,-0.39,-0.38,-0.47,-0.54,-0.55,-0.55,-0.55,-0.54,-0.57,-0.58,-0.8,-0.79,-0.77,-0.77,-0.8,-0.78,-0.79,-0.81,-0.72,-0.72,-0.76,-0.77,-0.77,-0.73,-0.72,-0.8,-0.89,-0.88,-0.89,-0.72,-0.62,-0.57,-0.65,-0.66,-0.6,-0.55,0.09,-0.41,-0.46,-0.47,-0.36,-0.38,-0.6,-0.67,-0.69,-1.0,-1.0,-0.83,-0.83,-0.82,-0.78,-0.78,-0.68,-0.65,-0.64,-0.76,-0.75,-0.74,-0.55,-0.51,-0.56,-0.51,-0.49,-0.46,-0.45,-0.23,-0.2,-0.18,-0.14,0.05,0.07,0.06,0.06,0.05,0.02,0.29,0.41,0.58,0.6,0.5,0.41,0.34,0.34,0.33,0.8,0.86,1.16,1.14,1.17,1.27,1.33,1.57,1.6,1.6,1.6,1.61,1.42,1.41,1.5,1.5,1.64,1.74,1.94,2.11,2.12,2.34,2.26,1.99,1.67,1.62,1.53,1.48,1.5,1.6,1.59,1.51,1.38,1.31,1.16,1.17,1.15,1.17,1.19,1.33,1.22,1.15,0.97,0.97,0.99,1.1,1.12,1.14,1.16,1.2,0.96,0.98,0.99,1.0,1.01,1.1,1.09,1.11,1.2,1.15,0.79,0.55,0.54,0.54,0.39,0.4,0.23,0.26,0.25,0.12,0.12,0.11,0.12,0.11,-0.0,0.01,-0.12,-0.16,-0.19,-0.25,-0.24],"em":[null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,-0.79,-0.77,-0.66,-0.64,-0.52,-0.49,-0.46,-0.43,-0.41,-0.59,-0.56,-0.43,-0.36,-0.35,-0.34,-0.03,0.38,0.38,0.4,0.4,0.39,0.32,0.34,0.32,0.32,0.23,0.2,0.2,0.18,0.17,0.16,0.15,0.18,0.2,0.2,0.31,0.6,0.59,0.59,0.59,0.52,0.49,0.74,0.93,0.79,0.63,0.59,0.49,0.48,0.46,0.85,0.83,0.82,0.8,0.4,0.38,0.37,0.3,0.47,0.54,0.54,0.43,0.38,0.22,0.18,0.35,0.37,0.5,0.51,0.29,0.32,0.38,0.78,0.8,0.62,0.47,0.41,0.42,0.61,0.61,0.57,0.4,0.4,0.57,0.56,0.51,0.42,0.42,0.42,0.42,0.37,0.38,0.4,0.43,0.4,0.39,0.27,0.27,0.27,-0.21,-0.2,-0.39,-0.45,-0.45,-0.43,-0.5,-0.65,-0.71,-0.72,-0.69,-0.69,-0.72,-0.75,-0.75,-0.73,-0.81,-0.93,-1.08,-1.12,-1.14,-1.25,-1.25,-1.23,-1.24,-1.24,-1.07,-0.94,-0.91,-0.95,-0.94,-0.93,-0.81,-0.78,-0.76,-0.77,-0.77,-0.79,-0.78,-0.63,-0.65,-0.71,-0.83,-0.84,-0.84,-0.85,-0.85,-0.82,-0.82,-0.81,-0.81,-0.8,-0.5,-0.48,-0.45,-0.35,-0.32,-0.3,-0.43,-0.39,-0.3,-0.3,-0.3,-0.36,-0.43,-0.43,-0.42,-0.22,-0.14,-0.14,0.3,0.82,0.59,0.58,0.56,0.54,0.52,-0.43,-0.45,-0.47,-0.49,-0.96,-1.06,-1.07,-0.99,-0.93,-0.94,-1.09,-1.1,-1.09,-1.12,-1.12,-1.12,-1.2,-1.2,-1.17,-1.18,-1.2,-1.16,-1.17,-1.01,-0.94,-1.02,-1.11,-1.13,-1.22,-1.26,-1.25,-1.22,-1.26,-1.29,-1.16,-1.11,-1.12,-1.16,-1.15,-1.21,-1.23,-1.25,-1.17,-1.12,-1.05,-1.01,-0.88,-0.8,-0.76,-0.75,-0.74,-0.75,-0.7,-0.67,-0.63,-0.62,-0.61,-0.62,-0.61,-0.61,-0.53,-0.51,-0.52,-0.55,-0.55,-0.5,-0.42,-0.38,-0.41,-0.41,-0.36,-0.25,-0.25,-0.28,-0.27,-0.24,-0.18,-0.17,-0.35,-0.37,-0.39,-0.38,-0.42,-0.52,-0.57,-0.6,-0.65,-0.77,-0.8,-0.81,-0.84,-0.9,-0.94,-0.84,-0.84,-0.85,-0.64,-0.63,-0.58,-0.47,-0.46,-0.46,-0.45,-0.51,-0.5,-0.49,-0.35,-0.34,-0.2,-0.19,0.05,0.06,0.08,0.08,0.08,0.02,-0.06,-0.06,0.03,0.11,0.35,0.35,0.36,0.36,0.37,0.39,0.43,0.47,0.73,0.94,1.08,1.13,1.22,1.26,1.36,1.39,1.47,1.47,1.4,1.39,1.41,1.42,1.51,1.51,2.08,2.09,2.13,2.15,2.15,2.09,2.01,1.99,1.76,1.75,1.73,2.03,2.09,2.07,1.85,1.83,2.04,2.03,1.97,1.94,1.94,2.09,2.42,2.46,2.34,1.82,1.79,1.8,1.76,1.59,0.94,0.92,0.72,0.61,0.58,0.57,0.56,0.66,0.67,0.67,0.69,0.71,0.75,0.71,0.7,0.65,0.66,0.69,0.81,0.87,0.88,0.81,0.82,0.84,0.89,0.89,0.81,0.59,0.62,0.58,0.55,0.53,0.51]},"all":{"us":[-1.39,-1.41,-1.4,-1.35,-1.31,-1.12,-1.11,-1.09,-1.06,-1.21,-1.23,-1.21,-1.21,-1.23,-1.24,-1.37,-1.45,-1.52,-1.56,-1.62,-1.62,-1.62,-1.59,-1.52,-1.41,-1.37,-1.35,-1.35,-1.34,-1.3,-1.34,-1.44,-1.45,-1.45,-1.45,-1.41,-1.26,-1.05,-1.05,-1.07,-1.1,-1.21,-1.23,-1.05,-1.05,-0.88,-0.84,-0.84,-1.02,-1.04,-1.23,-1.29,-1.31,-1.31,-1.19,-1.2,-1.25,-1.25,-1.24,-1.1,-1.09,-1.03,-0.99,-0.95,-0.85,-0.81,-0.81,-0.81,-0.57,-0.45,-0.43,-0.4,-0.36,-0.3,-0.45,-0.58,-0.59,-0.3,-0.28,-0.24,0.01,0.02,0.0,-0.23,-0.3,-0.35,-0.36,-0.46,-0.48,-0.39,-0.33,-0.32,-0.18,0.02,0.11,0.1,-0.22,-0.23,-0.28,-0.42,-0.45,-0.32,-0.32,-0.29,-0.21,-0.21,-0.44,-0.44,-0.45,-0.44,-0.44,-0.58,-0.57,-0.56,-0.54,-0.54,-0.52,-0.57,-0.72,-0.78,-0.84,-0.89,-0.89,-0.88,-0.85,-0.76,-0.77,-0.77,-0.76,-0.69,-0.9,-0.92,-0.93,-0.85,-0.84,-0.93,-0.96,-0.86,-0.78,-0.76,-0.69,-0.57,-0.55,-0.51,-0.51,-0.52,-0.52,-0.5,-0.43,0.04,0.05,0.05,0.04,-0.21,-0.4,-0.42,-0.43,-0.44,-0.49,-0.58,-0.59,-0.57,-0.56,-0.7,-0.69,-0.62,-0.55,-0.46,-0.44,-0.4,-0.29,-0.28,-0.25,-0.08,0.25,0.35,0.42,0.41,0.31,0.48,0.73,0.79,0.96,0.69,0.69,0.97,0.98,1.23,1.9,1.92,1.93,2.06,2.14,2.24,2.24,2.18,1.97,2.04,2.08,1.99,2.01,2.01,2.0,2.04,1.43,1.2,1.15,0.64,0.63,0.41,0.31,0.24,0.24,0.25,0.18,0.03,-0.03,-0.16,-0.18,-0.35,-0.4,-0.37,-0.12,-0.12,0.05,0.14,0.06,0.01,0.06,0.06,0.11,0.0,-0.32,-0.32,-0.31,-0.35,-0.35,-0.36,-0.55,-0.58,-0.63,-0.68,-0.7,-0.73,-0.73,-0.58,-0.58,-0.58,-0.57,-0.56,-0.58,-0.6,-0.58,-0.54,-0.56,-0.58,-0.65,-0.63,-0.6,-0.58,-0.53,-0.35,-0.34,-0.32,-0.29,-0.23,-0.22,-0.29,-0.42,-0.41,-0.39,-0.4,-0.43,-0.45,-0.6,-0.64,-0.63,-0.59,-0.59,-0.81,-0.81,-0.78,-0.44,-0.29,-0.0,0.11,0.16,0.19,0.16,0.15,0.17,0.1,0.11,0.13,0.12,0.05,0.07,0.21,0.73,0.74,0.69,0.19,0.19,-0.17,-0.43,-0.44,-0.42,-0.42,-0.4,-0.35,-0.4,-0.48,-0.44,-0.45,-0.43,-0.42,-0.4,-0.27,-0.28,-0.33,-0.34,-0.33,-0.34,-0.41,-0.44,-0.49,-0.46,-0.41,-0.32,-0.3,-0.09,0.1,0.11,0.11,0.12,0.17,0.04,-0.01,0.04,0.06,0.19,0.3,0.34,0.28,0.24,0.22,0.12,0.09,-0.01,-0.16,-0.18,-0.29,-0.31,-0.3,-0.26,-0.25,-0.18,-0.18,-0.21,-0.21,-0.21,-0.22,-0.32,-0.34,-0.37,-0.39,-0.48,-0.53,-0.51,-0.45,-0.41,-0.39,-0.25,-0.28,-0.31,-0.36,-0.37,-0.2,0.1,0.16,0.19,0.15,0.14,0.17,0.24,0.23,0.15,0.14,0.16,0.18,0.02,-0.18,-0.2,-0.3,-0.48,-0.55,-0.59,-0.61,-0.65,-0.63,-0.62,-0.66,-0.67,-0.67,-0.66,-0.62,-0.63,-0.7,-0.71,-0.6,-0.33,-0.31,-0.13,-0.13,-0.13,0.03,0.16,0.29,0.34,0.35,0.28,0.25,0.25,0.25,0.33,0.48,0.56,0.59,0.54,0.39,0.39,0.43,0.71,2.11,2.13,2.05,1.47,1.61,1.7,1.93,2.05,2.11,2.05,1.81,1.65,1.68,1.8,1.88,1.86,2.09,2.1,2.46,2.71,2.86,2.98,2.98,2.84,2.4,2.39,2.33,2.32,2.32,2.51,2.66,2.74,2.6,2.47,2.2,2.04,1.87,2.06,2.07,2.03,1.76,1.64,1.55,1.55,1.54,1.47,1.29,1.19,1.2,1.21,1.29,1.31,1.31,1.17,1.16,1.21,1.35,1.36,1.35,1.35,1.34,1.24,1.24,1.3,1.35,1.36,1.12,1.08,1.05,0.89,0.85,0.87,1.07,1.08,0.94,0.93,1.09,1.05,1.07,1.12,1.05],"dev":[null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,-0.03,-0.02,-0.01,-0.33,-0.49,-0.7,-0.69,-0.73,-0.71,-0.65,-0.46,-0.47,-0.43,-0.4,-0.34,-0.22,-0.24,-0.35,-0.35,-0.36,-0.39,-0.39,-0.41,-0.51,-0.58,-0.57,-0.28,-0.26,-0.21,-0.22,-0.47,-0.45,-0.43,-0.16,-0.11,0.01,-0.01,-0.01,0.16,0.3,0.34,0.35,0.29,0.3,0.53,0.85,0.86,0.85,0.83,0.76,0.71,0.54,0.51,0.5,0.55,0.5,0.39,0.06,0.06,0.17,0.38,0.33,0.28,0.34,0.34,0.22,0.27,0.51,0.62,1.18,1.01,0.99,1.17,1.31,1.36,1.32,1.29,1.26,1.16,1.04,1.1,1.14,1.3,2.31,2.29,2.22,1.93,1.93,1.73,1.97,1.77,1.72,1.72,1.68,1.64,1.64,1.54,1.13,1.04,1.04,1.04,1.04,0.41,0.41,0.35,0.35,0.35,0.17,0.16,0.15,0.06,0.04,-0.25,-0.55,-0.55,-0.42,-0.42,-0.27,-0.28,-0.27,-0.29,-0.28,-0.28,-0.28,-0.28,-0.42,-0.44,-0.6,-0.82,-0.69,-0.68,-0.75,-1.04,-1.06,-1.09,-1.12,-1.1,-1.1,-1.29,-1.31,-1.3,-1.28,-1.26,-1.26,-1.25,-1.27,-1.27,-1.31,-1.31,-1.27,-1.2,-1.2,-1.1,-1.08,-1.01,-1.01,-1.01,-1.03,-1.2,-1.23,-1.41,-1.41,-1.18,-1.1,-1.07,-1.06,-1.06,-1.06,-1.06,-1.05,-1.05,-1.17,-1.22,-1.24,-1.26,-1.28,-1.26,-0.98,-0.81,-0.74,-0.76,-0.76,-0.77,-0.65,-0.75,-0.74,-0.46,-0.44,-0.45,-0.28,-0.28,0.36,2.13,2.31,2.33,2.29,0.39,-0.17,-0.65,-0.75,-0.74,-0.75,-0.73,-0.73,-0.73,-0.89,-0.9,-0.97,-0.95,-0.95,-0.96,-0.97,-0.91,-0.89,-0.91,-0.9,-0.99,-1.01,-0.95,-0.93,-0.94,-0.95,-0.89,-0.64,-0.47,-0.57,-0.58,-0.58,-0.57,-0.72,-0.77,-0.76,-0.74,-0.51,-0.32,-0.3,-0.43,-0.46,-0.49,-0.53,-0.54,-0.59,-0.64,-0.63,-0.74,-0.82,-0.83,-0.83,-0.82,-0.8,-0.82,-0.82,-1.05,-1.03,-0.98,-0.97,-0.99,-0.95,-0.95,-0.95,-0.83,-0.83,-0.86,-0.86,-0.85,-0.8,-0.79,-0.88,-0.98,-0.97,-0.98,-0.79,-0.67,-0.61,-0.71,-0.71,-0.64,-0.58,0.16,-0.41,-0.45,-0.45,-0.32,-0.33,-0.58,-0.64,-0.65,-0.99,-0.98,-0.78,-0.77,-0.76,-0.71,-0.71,-0.6,-0.57,-0.57,-0.72,-0.72,-0.72,-0.53,-0.49,-0.58,-0.53,-0.53,-0.53,-0.53,-0.3,-0.28,-0.28,-0.25,-0.04,-0.04,-0.05,-0.05,-0.07,-0.11,0.2,0.34,0.53,0.57,0.45,0.35,0.28,0.29,0.28,0.82,0.89,1.24,1.22,1.25,1.37,1.44,1.71,1.73,1.73,1.73,1.73,1.52,1.5,1.61,1.61,1.77,1.89,2.12,2.32,2.35,2.61,2.54,2.24,1.89,1.85,1.77,1.73,1.76,1.9,1.89,1.81,1.68,1.61,1.45,1.47,1.44,1.47,1.49,1.63,1.5,1.41,1.19,1.17,1.18,1.29,1.29,1.3,1.3,1.33,1.04,1.05,1.04,1.04,1.04,1.13,1.11,1.13,1.22,1.16,0.74,0.46,0.44,0.44,0.26,0.26,0.07,0.09,0.07,-0.09,-0.11,-0.14,-0.13,-0.16,-0.3,-0.3,-0.32,-0.38,-0.43,-0.52,-0.49],"em":[null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,-0.82,-0.81,-0.71,-0.7,-0.58,-0.57,-0.56,-0.55,-0.54,-0.77,-0.76,-0.63,-0.58,-0.58,-0.58,-0.23,0.22,0.22,0.25,0.25,0.25,0.18,0.21,0.21,0.23,0.14,0.12,0.14,0.14,0.14,0.13,0.14,0.19,0.22,0.23,0.35,0.68,0.67,0.67,0.67,0.6,0.57,0.85,1.07,0.92,0.75,0.71,0.61,0.61,0.6,1.06,1.06,1.06,1.05,0.61,0.61,0.61,0.54,0.74,0.82,0.82,0.7,0.63,0.44,0.38,0.56,0.56,0.68,0.68,0.4,0.41,0.46,0.89,0.89,0.67,0.48,0.4,0.4,0.6,0.6,0.55,0.35,0.35,0.54,0.54,0.48,0.39,0.39,0.39,0.39,0.33,0.34,0.36,0.39,0.35,0.33,0.18,0.17,0.17,-0.39,-0.38,-0.6,-0.67,-0.67,-0.65,-0.72,-0.88,-0.94,-0.93,-0.88,-0.86,-0.87,-0.88,-0.85,-0.81,-0.87,-0.98,-1.13,-1.15,-1.17,-1.28,-1.26,-1.23,-1.23,-1.23,-1.04,-0.9,-0.87,-0.92,-0.92,-0.92,-0.79,-0.77,-0.76,-0.78,-0.79,-0.82,-0.81,-0.64,-0.66,-0.74,-0.86,-0.88,-0.87,-0.88,-0.88,-0.85,-0.85,-0.85,-0.85,-0.85,-0.53,-0.51,-0.5,-0.41,-0.4,-0.39,-0.56,-0.53,-0.46,-0.48,-0.49,-0.59,-0.67,-0.69,-0.69,-0.46,-0.37,-0.37,0.14,0.74,0.49,0.49,0.48,0.48,0.48,-0.58,-0.59,-0.6,-0.6,-1.12,-1.22,-1.22,-1.12,-1.05,-1.06,-1.22,-1.23,-1.22,-1.25,-1.25,-1.25,-1.33,-1.33,-1.3,-1.3,-1.32,-1.26,-1.26,-1.06,-0.97,-1.05,-1.13,-1.14,-1.23,-1.26,-1.23,-1.19,-1.23,-1.26,-1.12,-1.06,-1.08,-1.13,-1.14,-1.23,-1.27,-1.31,-1.25,-1.21,-1.16,-1.14,-1.01,-0.94,-0.92,-0.92,-0.92,-0.94,-0.9,-0.87,-0.83,-0.82,-0.81,-0.81,-0.8,-0.8,-0.71,-0.68,-0.69,-0.72,-0.72,-0.67,-0.57,-0.53,-0.58,-0.58,-0.53,-0.41,-0.42,-0.46,-0.45,-0.42,-0.36,-0.35,-0.54,-0.56,-0.57,-0.55,-0.58,-0.67,-0.7,-0.72,-0.75,-0.86,-0.87,-0.86,-0.87,-0.92,-0.94,-0.81,-0.79,-0.79,-0.55,-0.53,-0.47,-0.35,-0.35,-0.35,-0.35,-0.43,-0.43,-0.43,-0.28,-0.28,-0.13,-0.13,0.13,0.14,0.16,0.16,0.16,0.09,-0.0,-0.0,0.1,0.19,0.46,0.46,0.46,0.46,0.46,0.47,0.51,0.53,0.81,1.02,1.16,1.2,1.28,1.3,1.4,1.42,1.5,1.48,1.38,1.36,1.39,1.4,1.51,1.51,2.17,2.19,2.26,2.29,2.31,2.25,2.18,2.17,1.93,1.93,1.92,2.27,2.35,2.33,2.09,2.07,2.31,2.29,2.22,2.18,2.18,2.35,2.73,2.77,2.63,2.05,2.03,2.04,2.0,1.82,1.09,1.08,0.86,0.75,0.73,0.72,0.72,0.84,0.85,0.85,0.87,0.89,0.92,0.86,0.83,0.75,0.74,0.75,0.86,0.9,0.88,0.78,0.76,0.76,0.8,0.78,0.68,0.41,0.51,0.44,0.41,0.39,0.36]}};
+    const AQR_END_INDEX = INITIAL_MULTI_DATA.aqr_end_idx; // 509 = 2026/06
+    const STORAGE_KEY = 'aqr_value_spread_multicap_v3';
+
+    // Default Fundamental Multiples Preset (Verified Oct 28, 2026 iShares / MSCI Data)
+    const FUNDAMENTAL_PRESETS = {
+      us_large:  { gPb: 14.70, vPb: 3.38, gPe: 37.60, vPe: 23.73, mu: 0.785, sd: 0.205, tier: 'large', mkt: 'us' },
+      us_small:  { gPb: 4.43,  vPb: 1.35, gPe: 25.75, vPe: 14.58, mu: 0.720, sd: 0.202, tier: 'small', mkt: 'us' },
+      dev_large: { gPb: 4.03,  vPb: 1.68, gPe: 25.44, vPe: 15.25, mu: 0.790, sd: 0.175, tier: 'large', mkt: 'dev' },
+      dev_small: { gPb: 2.42,  vPb: 0.98, gPe: 21.80, vPe: 13.40, mu: 0.735, sd: 0.165, tier: 'small', mkt: 'dev' },
+      em_large:  { gPb: 3.85,  vPb: 1.42, gPe: 23.60, vPe: 12.10, mu: 0.770, sd: 0.185, tier: 'large', mkt: 'em' },
+      em_small:  { gPb: 2.65,  vPb: 1.02, gPe: 20.40, vPe: 11.80, mu: 0.680, sd: 0.175, tier: 'small', mkt: 'em' }
+    };
+
+    // State
+    let storeData = null;
+    let displayMode = 'live';         // 'live' (up to 2026/10) or 'aqr_only' (up to 2026/06)
+    let capMode = 'large_small';      // 'large_small', 'large_all', 'large', 'small', 'all'
+    let visibleMarkets = { us: true, dev: true, em: true };
+    let startYearFilter = 'all';
+    let hoverIdx = null;
+    let pinnedIdx = null;
+    let showHistoricalEvents = false;
+
+    const HISTORICAL_EVENTS = [
+      { month: '2000/03', label: '2000 科網泡沫' },
+      { month: '2009/02', label: '2009 金融海嘯' },
+      { month: '2021/11', label: '2021 價值價差頂峰' },
+      { month: '2026/06', label: 'AQR 原圖截止點' }
+    ];
+
+    function cloneInitialData() {
+      return JSON.parse(JSON.stringify(INITIAL_MULTI_DATA));
+    }
+
+    function loadData() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (parsed && Array.isArray(parsed.months) && parsed.large && parsed.small && parsed.all) {
+            storeData = parsed;
+            return;
+          }
+        }
+      } catch (e) {
+        // Ignore storage errors
+      }
+      storeData = cloneInitialData();
+    }
+
+    function saveData() {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(storeData));
+      } catch (e) {
+        // Ignore storage errors
+      }
+    }
+
+    function getActiveSlice() {
+      const endLimit = displayMode === 'aqr_only' ? (AQR_END_INDEX + 1) : storeData.months.length;
+      const sliceTier = (tierObj) => ({
+        us: tierObj.us.slice(0, endLimit),
+        dev: tierObj.dev.slice(0, endLimit),
+        em: tierObj.em.slice(0, endLimit)
+      });
+      return {
+        months: storeData.months.slice(0, endLimit),
+        large: sliceTier(storeData.large),
+        small: sliceTier(storeData.small),
+        all: sliceTier(storeData.all)
+      };
+    }
+
+    function getPrimaryAndSecondaryTiers() {
+      if (capMode === 'large_small') return { primary: 'large', secondary: 'small', pLabel: '大型股', sLabel: '小型股' };
+      if (capMode === 'large_all')   return { primary: 'large', secondary: 'all',   pLabel: '大型股', sLabel: '全市場' };
+      if (capMode === 'small')       return { primary: 'small', secondary: null,    pLabel: '小型股', sLabel: null };
+      if (capMode === 'all')         return { primary: 'all',   secondary: null,    pLabel: '全市場', sLabel: null };
+      return { primary: 'large', secondary: null, pLabel: '大型股', sLabel: null };
+    }
+
+    function formatZ(val) {
+      if (val === null || val === undefined || isNaN(val)) return '—';
+      const num = Number(val);
+      return (num > 0 ? '+' : '') + num.toFixed(2);
+    }
+
+    function calcPercentile(arr, targetVal) {
+      if (targetVal === null || targetVal === undefined || isNaN(targetVal)) return null;
+      const valid = arr.filter(v => v !== null && v !== undefined && !isNaN(v));
+      if (valid.length === 0) return null;
+      const leCount = valid.filter(v => Number(v) <= Number(targetVal)).length;
+      return (leCount / valid.length) * 100;
+    }
+
+    function getStartIndexForFilter(activeData) {
+      if (startYearFilter === 'all') return 0;
+      const prefix = String(startYearFilter) + '/';
+      const idx = activeData.months.findIndex(m => m.startsWith(prefix));
+      return idx >= 0 ? idx : 0;
+    }
+
+    function updateKPIsAndSummary(activeIdx) {
+      const activeData = getActiveSlice();
+      const maxIdx = activeData.months.length - 1;
+      const idx = (activeIdx !== null && activeIdx !== undefined && activeIdx <= maxIdx) ? activeIdx : maxIdx;
+      const monthStr = activeData.months[idx] || activeData.months[maxIdx];
+      const firstMonth = activeData.months[0];
+      const lastMonth = activeData.months[maxIdx];
+      const tiers = getPrimaryAndSecondaryTiers();
+
+      document.getElementById('subtitleText').textContent =
+        `Value Spread | AQR × Ken French × Morningstar/MSCI | ${tiers.pLabel}${tiers.sLabel ? '＋' + tiers.sLabel : ''} (${firstMonth}–${lastMonth})`;
+
+      document.getElementById('chartLegendText').textContent = tiers.secondary
+        ? `估值價差 (Z-score) ｜ 實線：${tiers.pLabel} · 虛線：${tiers.sLabel}（點擊市場卡片可篩選市場）`
+        : `估值價差 (Z-score) ｜ 實線：${tiers.pLabel}（點擊上方按鈕可疊加小型股或全市場虛線）`;
+
+      const marketConfigs = [
+        { key: 'us', valEl: 'valUs', pctEl: 'pctUs', barEl: 'barUs', dateEl: 'badgeDateUs', deltaEl: 'deltaUs', cardEl: 'cardUs', tagEl: 'capTagUs', subL: 'subUsLarge', subS: 'subUsSmall', subA: 'subUsAll' },
+        { key: 'dev', valEl: 'valDev', pctEl: 'pctDev', barEl: 'barDev', dateEl: 'badgeDateDev', deltaEl: 'deltaDev', cardEl: 'cardDev', tagEl: 'capTagDev', subL: 'subDevLarge', subS: 'subDevSmall', subA: 'subDevAll' },
+        { key: 'em', valEl: 'valEm', pctEl: 'pctEm', barEl: 'barEm', dateEl: 'badgeDateEm', deltaEl: 'deltaEm', cardEl: 'cardEm', tagEl: 'capTagEm', subL: 'subEmLarge', subS: 'subEmSmall', subA: 'subEmAll' }
+      ];
+
+      marketConfigs.forEach(cfg => {
+        const pSeries = activeData[tiers.primary][cfg.key];
+        const v = pSeries[idx];
+        const pct = calcPercentile(pSeries, v);
+        const anchor6 = pSeries[Math.min(AQR_END_INDEX, pSeries.length - 1)];
+
+        document.getElementById(cfg.tagEl).textContent = tiers.pLabel;
+        document.getElementById(cfg.dateEl).textContent = monthStr;
+        document.getElementById(cfg.valEl).textContent = formatZ(v);
+
+        if (pct !== null) {
+          document.getElementById(cfg.pctEl).textContent = `歷史分位 ${pct.toFixed(1)}%`;
+          document.getElementById(cfg.barEl).style.width = `${Math.max(2, Math.min(100, pct)).toFixed(1)}%`;
+        } else {
+          document.getElementById(cfg.pctEl).textContent = '尚未有樣本';
+          document.getElementById(cfg.barEl).style.width = '0%';
+        }
+
+        document.getElementById(cfg.deltaEl).textContent = `(2026/06: ${formatZ(anchor6)})`;
+
+        // Update all 3 cap sub-rows inside the card for the current month
+        const vL = activeData.large[cfg.key][idx];
+        const pL = calcPercentile(activeData.large[cfg.key], vL);
+        const vS = activeData.small[cfg.key][idx];
+        const pS = calcPercentile(activeData.small[cfg.key], vS);
+        const vA = activeData.all[cfg.key][idx];
+        const pA = calcPercentile(activeData.all[cfg.key], vA);
+
+        document.getElementById(cfg.subL).innerHTML = `${formatZ(vL)} <span class="font-normal text-[10px] text-slate-500">(${pL !== null ? pL.toFixed(1) + '%' : '—'})</span>`;
+        document.getElementById(cfg.subS).innerHTML = `${formatZ(vS)} <span class="font-normal text-[10px] text-slate-500">(${pS !== null ? pS.toFixed(1) + '%' : '—'})</span>`;
+        document.getElementById(cfg.subA).innerHTML = `${formatZ(vA)} <span class="font-normal text-[10px] text-slate-500">(${pA !== null ? pA.toFixed(1) + '%' : '—'})</span>`;
+
+        document.getElementById(cfg.cardEl).style.opacity = visibleMarkets[cfg.key] ? '1' : '0.42';
+      });
+
+      // Update Scrubber
+      const scrubber = document.getElementById('monthScrubber');
+      scrubber.max = String(maxIdx);
+      scrubber.value = String(idx);
+
+      // Update Comprehensive 9-Row Summary Table
+      const tableRows = [
+        { mkt: 'us',  tier: 'large', name: '美國・大型股 (US Large)',      color: '#1d4e89', src: 'AQR / Morningstar US Large Style Index', start: '1984/01' },
+        { mkt: 'us',  tier: 'small', name: '美國・小型股 (US Small)',      color: '#2563eb', src: 'Ken French US 2×3 (Small HiBM vs LoBM)', start: '1984/01' },
+        { mkt: 'us',  tier: 'all',   name: '美國・全市場 (US All-Cap)',    color: '#1e40af', src: 'Ken French US All-Cap HML / B/M·E/P·CF/P', start: '1984/01' },
+        { mkt: 'dev', tier: 'large', name: '已開發非美・大型股 (Dev Large)', color: '#167c68', src: 'AQR / MSCI World ex USA Large Value·Growth', start: '1992/12' },
+        { mkt: 'dev', tier: 'small', name: '已開發非美・小型股 (Dev Small)', color: '#0d9488', src: 'Ken French Dev ex-US 2×3 (Small HiBM vs LoBM)', start: '1992/12' },
+        { mkt: 'dev', tier: 'all',   name: '已開發非美・全市場 (Dev All)',   color: '#115e59', src: 'Ken French Dev ex-US All-Cap / MSCI IMI', start: '1992/12' },
+        { mkt: 'em',  tier: 'large', name: '新興市場・大型股 (EM Large)',    color: '#c5821b', src: 'AQR / MSCI EM Large Value·Growth Index', start: '1994/12' },
+        { mkt: 'em',  tier: 'small', name: '新興市場・小型股 (EM Small)',    color: '#d97706', src: 'Ken French EM 2×3 (Small HiBM vs LoBM)', start: '1994/12' },
+        { mkt: 'em',  tier: 'all',   name: '新興市場・全市場 (EM All-Cap)',  color: '#b45309', src: 'Ken French EM All-Cap 5-Factor / MSCI EM IMI', start: '1994/12' }
+      ];
+
+      const tbody = document.getElementById('summaryTableBody');
+      tbody.innerHTML = tableRows.map(r => {
+        const arr = activeData[r.tier][r.mkt];
+        const validPairs = arr.map((v, i) => ({ v, m: activeData.months[i] })).filter(d => d.v !== null && d.v !== undefined);
+        const latest = validPairs[validPairs.length - 1];
+        const val202606 = arr[Math.min(AQR_END_INDEX, arr.length - 1)];
+        const pct = calcPercentile(arr, latest.v);
+        let maxPair = validPairs[0];
+        validPairs.forEach(p => { if (p.v > maxPair.v) maxPair = p; });
+
+        let statusLabel = '接近歷史平均';
+        let statusClass = 'bg-slate-100 text-slate-700';
+        if (latest.v >= 0.9) {
+          statusLabel = '價差顯著偏寬（價值股便宜）';
+          statusClass = 'bg-blue-50 text-[#1d4e89]';
+        } else if (latest.v >= 0.3) {
+          statusLabel = '價差溫和偏寬（價值略便宜）';
+          statusClass = 'bg-amber-50 text-[#c5821b]';
+        } else if (latest.v <= -0.4) {
+          statusLabel = '價差偏窄（價值股相對不便宜）';
+          statusClass = 'bg-emerald-50 text-[#167c68]';
+        }
+
+        const isHighlighted = (r.tier === tiers.primary || r.tier === tiers.secondary);
+        return `
+          <tr class="${isHighlighted ? 'bg-slate-50/90' : ''} hover:bg-slate-100/70 transition cursor-pointer" data-rowtier="${r.tier}">
+            <td class="py-2 pr-3 font-bold" style="color:${r.color}">${r.name}</td>
+            <td class="py-2 px-2.5 text-xs text-slate-500">${r.src}</td>
+            <td class="py-2 px-2.5 text-slate-500">${r.start}</td>
+            <td class="py-2 px-2.5 text-slate-600">${formatZ(val202606)}</td>
+            <td class="py-2 px-2.5 font-bold" style="color:${r.color}">${formatZ(latest.v)}</td>
+            <td class="py-2 px-2.5 font-semibold">${pct.toFixed(1)}%</td>
+            <td class="py-2 px-2.5 text-slate-600">${formatZ(maxPair.v)} <span class="text-[11px] text-slate-400">(${maxPair.m})</span></td>
+            <td class="py-2 pl-2.5"><span class="px-2 py-0.5 rounded-full text-xs font-medium ${statusClass}">${statusLabel}</span></td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function drawChart() {
+      const canvas = document.getElementById('spreadChart');
+      if (!canvas) return;
+      const activeData = getActiveSlice();
+      const tiers = getPrimaryAndSecondaryTiers();
+
+      const rect = canvas.parentElement.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      const W = Math.max(300, rect.width);
+      const H = Math.max(260, rect.height);
+      canvas.width = W * dpr;
+      canvas.height = H * dpr;
+
+      const ctx = canvas.getContext('2d');
+      ctx.save();
+      ctx.scale(dpr, dpr);
+      ctx.clearRect(0, 0, W, H);
+
+      const startIdx = getStartIndexForFilter(activeData);
+      const endIdx = activeData.months.length - 1;
+      const count = Math.max(2, endIdx - startIdx + 1);
+
+      const padLeft = 36;
+      const padRight = 84;
+      const padTop = 18;
+      const padBottom = 34;
+      const plotW = W - padLeft - padRight;
+      const plotH = H - padTop - padBottom;
+
+      const yMin = -2.0;
+      const yMax = 3.35;
+      const yToPx = (z) => padTop + ((yMax - z) / (yMax - yMin)) * plotH;
+      const idxToPx = (i) => padLeft + ((i - startIdx) / (count - 1)) * plotW;
+
+      // Plot Background
+      ctx.fillStyle = '#f8fafc';
+      ctx.fillRect(padLeft, padTop, plotW, plotH);
+
+      // Highlight Post-2026/06 Monthly Fundamental Zone
+      if (displayMode === 'live' && endIdx > AQR_END_INDEX && AQR_END_INDEX >= startIdx) {
+        const xAnchor = idxToPx(AQR_END_INDEX);
+        ctx.fillStyle = 'rgba(16, 185, 129, 0.06)';
+        ctx.fillRect(xAnchor, padTop, padLeft + plotW - xAnchor, plotH);
+        ctx.save();
+        ctx.beginPath();
+        ctx.strokeStyle = 'rgba(16, 185, 129, 0.45)';
+        ctx.setLineDash([3, 3]);
+        ctx.moveTo(xAnchor, padTop);
+        ctx.lineTo(xAnchor, padTop + plotH);
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      // Horizontal Gridlines
+      const yTicks = [-2, -1, 0, 1, 2, 3];
+      ctx.font = '500 11px Inter, Noto Sans TC, sans-serif';
+      ctx.textAlign = 'right';
+      ctx.textBaseline = 'middle';
+
+      yTicks.forEach(t => {
+        const y = yToPx(t);
+        ctx.beginPath();
+        if (t === 0) {
+          ctx.strokeStyle = '#94a3b8';
+          ctx.lineWidth = 1.25;
+          ctx.setLineDash([5, 4]);
+        } else if (t === -2) {
+          ctx.strokeStyle = '#cbd5e1';
+          ctx.lineWidth = 1;
+          ctx.setLineDash([]);
+        } else {
+          ctx.strokeStyle = '#e2e8f0';
+          ctx.lineWidth = 1;
+          ctx.setLineDash([]);
+        }
+        ctx.moveTo(padLeft, y);
+        ctx.lineTo(padLeft + plotW, y);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        const label = t > 0 ? `+${t}` : `${t}`;
+        ctx.fillStyle = '#64748b';
+        ctx.fillText(label, padLeft - 8, y);
+      });
+
+      // "歷史平均" label
+      const yZero = yToPx(0);
+      ctx.font = '500 11px "Noto Sans TC", sans-serif';
+      ctx.fillStyle = '#64748b';
+      ctx.textAlign = 'right';
+      ctx.fillText('歷史平均', padLeft + plotW - 4, yZero - 10);
+
+      // Top & Bottom Annotations
+      ctx.textAlign = 'left';
+      ctx.fillStyle = '#64748b';
+      ctx.font = '500 11.5px "Noto Sans TC", sans-serif';
+      ctx.fillText('價差較寬：價值股相對成長股更便宜', padLeft + 4, padTop + 13);
+      ctx.fillText('價差較窄：價值股的相對便宜程度降低', padLeft + 4, padTop + plotH - 12);
+
+      // Optional Historical Event Markers
+      if (showHistoricalEvents) {
+        HISTORICAL_EVENTS.forEach(ev => {
+          const evIdx = activeData.months.indexOf(ev.month);
+          if (evIdx >= startIdx && evIdx <= endIdx) {
+            const x = idxToPx(evIdx);
+            ctx.save();
+            ctx.beginPath();
+            ctx.strokeStyle = 'rgba(100, 116, 139, 0.35)';
+            ctx.setLineDash([3, 3]);
+            ctx.moveTo(x, padTop);
+            ctx.lineTo(x, padTop + plotH);
+            ctx.stroke();
+            ctx.fillStyle = '#475569';
+            ctx.font = '600 10px "Noto Sans TC", sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText(ev.label, x, padTop + 26);
+            ctx.restore();
+          }
+        });
+      }
+
+      // X-axis Year Labels
+      const targetYears = [1984, 1990, 1995, 2000, 2005, 2010, 2015, 2020, 2023, 2024, 2025, 2026];
+      ctx.font = '500 11.5px Inter, "Noto Sans TC", sans-serif';
+      ctx.fillStyle = '#475569';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'top';
+
+      let lastDrawnX = -999;
+      targetYears.forEach(yr => {
+        const mStr = `${yr}/01`;
+        const idx = activeData.months.indexOf(mStr);
+        if (idx >= startIdx && idx <= endIdx) {
+          const x = idxToPx(idx);
+          if (x - lastDrawnX >= 42) {
+            ctx.fillText(String(yr), x, padTop + plotH + 8);
+            lastDrawnX = x;
+          }
+        }
+      });
+
+      const marketColors = [
+        { key: 'dev', color: '#167c68', secColor: 'rgba(22, 124, 104, 0.65)' },
+        { key: 'em',  color: '#c5821b', secColor: 'rgba(197, 130, 27, 0.68)' },
+        { key: 'us',  color: '#1d4e89', secColor: 'rgba(29, 78, 137, 0.65)' }
+      ];
+
+      // 1. Draw Secondary Tier Curves (Dashed) if Dual-Cap Mode is active
+      if (tiers.secondary) {
+        marketColors.forEach(mc => {
+          if (!visibleMarkets[mc.key]) return;
+          const sData = activeData[tiers.secondary][mc.key];
+          ctx.save();
+          ctx.beginPath();
+          ctx.strokeStyle = mc.secColor;
+          ctx.lineWidth = 1.45;
+          ctx.setLineDash([4, 3]);
+          let started = false;
+          for (let i = startIdx; i <= endIdx; i++) {
+            const v = sData[i];
+            if (v === null || v === undefined || isNaN(v)) continue;
+            const x = idxToPx(i);
+            const y = yToPx(v);
+            if (!started) { ctx.moveTo(x, y); started = true; }
+            else { ctx.lineTo(x, y); }
+          }
+          ctx.stroke();
+          ctx.restore();
+        });
+      }
+
+      // 2. Draw Primary Tier Curves (Solid)
+      marketColors.forEach(mc => {
+        if (!visibleMarkets[mc.key]) return;
+        const pData = activeData[tiers.primary][mc.key];
+        ctx.beginPath();
+        ctx.strokeStyle = mc.color;
+        ctx.lineWidth = 1.95;
+        ctx.lineJoin = 'round';
+        ctx.lineCap = 'round';
+        let started = false;
+        for (let i = startIdx; i <= endIdx; i++) {
+          const v = pData[i];
+          if (v === null || v === undefined || isNaN(v)) continue;
+          const x = idxToPx(i);
+          const y = yToPx(v);
+          if (!started) { ctx.moveTo(x, y); started = true; }
+          else { ctx.lineTo(x, y); }
+        }
+        ctx.stroke();
+      });
+
+      // 3. Draw End Dots and Right-Side Labels for Both Primary and Secondary
+      const endLabels = [];
+      marketColors.forEach(mc => {
+        if (!visibleMarkets[mc.key]) return;
+        const pVal = activeData[tiers.primary][mc.key][endIdx];
+        if (pVal !== null && pVal !== undefined) {
+          const x = idxToPx(endIdx);
+          const y = yToPx(pVal);
+          ctx.beginPath();
+          ctx.fillStyle = mc.color;
+          ctx.arc(x, y, 3.5, 0, Math.PI * 2);
+          ctx.fill();
+          endLabels.push({
+            text: `${formatZ(pVal)}${tiers.secondary ? ' (大)' : ''}`,
+            color: mc.color,
+            x: x + 7,
+            y,
+            bold: true
+          });
+        }
+        if (tiers.secondary) {
+          const sVal = activeData[tiers.secondary][mc.key][endIdx];
+          if (sVal !== null && sVal !== undefined) {
+            const x = idxToPx(endIdx);
+            const y = yToPx(sVal);
+            ctx.beginPath();
+            ctx.strokeStyle = mc.color;
+            ctx.fillStyle = '#ffffff';
+            ctx.lineWidth = 1.5;
+            ctx.arc(x, y, 3.0, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+            endLabels.push({
+              text: `${formatZ(sVal)} (${tiers.secondary === 'small' ? '小' : '全'})`,
+              color: mc.secColor,
+              x: x + 7,
+              y,
+              bold: false
+            });
+          }
+        }
+      });
+
+      endLabels.sort((a, b) => a.y - b.y);
+      for (let i = 1; i < endLabels.length; i++) {
+        if (endLabels[i].y - endLabels[i - 1].y < 13) {
+          endLabels[i].y = endLabels[i - 1].y + 13;
+        }
+      }
+
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'middle';
+      endLabels.forEach(lbl => {
+        ctx.font = lbl.bold ? '700 11.5px Inter, "Noto Sans TC", sans-serif' : '500 10.5px Inter, "Noto Sans TC", sans-serif';
+        ctx.fillStyle = lbl.color;
+        ctx.fillText(lbl.text, lbl.x, lbl.y);
+      });
+
+      // Active Hover or Pinned Crosshair
+      const activeIdx = pinnedIdx !== null ? pinnedIdx : hoverIdx;
+      if (activeIdx !== null && activeIdx >= startIdx && activeIdx <= endIdx) {
+        const cx = idxToPx(activeIdx);
+        ctx.save();
+        ctx.beginPath();
+        ctx.strokeStyle = pinnedIdx !== null ? '#d97706' : '#64748b';
+        ctx.lineWidth = 1;
+        ctx.setLineDash([4, 3]);
+        ctx.moveTo(cx, padTop);
+        ctx.lineTo(cx, padTop + plotH);
+        ctx.stroke();
+        ctx.restore();
+
+        marketColors.forEach(mc => {
+          if (!visibleMarkets[mc.key]) return;
+          const pVal = activeData[tiers.primary][mc.key][activeIdx];
+          if (pVal !== null && pVal !== undefined) {
+            const cy = yToPx(pVal);
+            ctx.beginPath();
+            ctx.fillStyle = '#ffffff';
+            ctx.arc(cx, cy, 4.8, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.fillStyle = mc.color;
+            ctx.arc(cx, cy, 3.4, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        });
+      }
+
+      ctx.restore();
+    }
+
+    function updateTooltip() {
+      const canvas = document.getElementById('spreadChart');
+      const tooltip = document.getElementById('chartTooltip');
+      const activeData = getActiveSlice();
+      const maxIdx = activeData.months.length - 1;
+      const activeIdx = pinnedIdx !== null ? Math.min(pinnedIdx, maxIdx) : hoverIdx;
+
+      if (activeIdx === null || activeIdx > maxIdx) {
+        tooltip.classList.add('hidden');
+        return;
+      }
+
+      const monthStr = activeData.months[activeIdx];
+      const isPostAnchor = activeIdx > AQR_END_INDEX;
+      document.getElementById('ttMonth').textContent = monthStr + (pinnedIdx !== null ? ' (已鎖定)' : '');
+      const tagEl = document.getElementById('ttSourceTag');
+      tagEl.textContent = isPostAnchor ? '月度基本面校準' : 'AQR / Ken French';
+      tagEl.className = isPostAnchor
+        ? 'text-[10px] px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 font-semibold'
+        : 'text-[10px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-600';
+
+      const items = [
+        { key: 'us',  name: '美國市場',   color: '#1d4e89' },
+        { key: 'dev', name: '已開發非美', color: '#167c68' },
+        { key: 'em',  name: '新興市場',   color: '#c5821b' }
+      ];
+
+      document.getElementById('ttBody').innerHTML = items
+        .filter(it => visibleMarkets[it.key])
+        .map(it => {
+          const vL = activeData.large[it.key][activeIdx];
+          const vS = activeData.small[it.key][activeIdx];
+          const vA = activeData.all[it.key][activeIdx];
+          return `
+            <div class="pt-1 first:pt-0 border-t first:border-t-0 border-slate-100">
+              <div class="flex items-center justify-between font-bold" style="color:${it.color}">
+                <span>● ${it.name}</span>
+                <span>大型 ${formatZ(vL)}</span>
+              </div>
+              <div class="flex items-center justify-between text-[11px] text-slate-500 mt-0.5">
+                <span>小型股：<strong>${formatZ(vS)}</strong></span>
+                <span>全市場：<strong>${formatZ(vA)}</strong></span>
+              </div>
+            </div>
+          `;
+        }).join('');
+
+      tooltip.classList.remove('hidden');
+
+      const rect = canvas.getBoundingClientRect();
+      const startIdx = getStartIndexForFilter(activeData);
+      const endIdx = activeData.months.length - 1;
+      const count = Math.max(2, endIdx - startIdx + 1);
+      const padLeft = 36, padRight = 84;
+      const plotW = rect.width - padLeft - padRight;
+      const xPx = padLeft + ((activeIdx - startIdx) / (count - 1)) * plotW;
+
+      const ttWidth = 265;
+      let leftPos = xPx + 14;
+      if (leftPos + ttWidth > rect.width - 10) {
+        leftPos = Math.max(8, xPx - ttWidth - 14);
+      }
+      tooltip.style.left = `${leftPos}px`;
+      tooltip.style.top = `20px`;
+    }
+
+    function getIdxFromMouseEvent(e) {
+      const canvas = document.getElementById('spreadChart');
+      const activeData = getActiveSlice();
+      const rect = canvas.getBoundingClientRect();
+      const x = (e.touches && e.touches[0] ? e.touches[0].clientX : e.clientX) - rect.left;
+      const padLeft = 36, padRight = 84;
+      const plotW = rect.width - padLeft - padRight;
+      const ratio = Math.max(0, Math.min(1, (x - padLeft) / plotW));
+      const startIdx = getStartIndexForFilter(activeData);
+      const endIdx = activeData.months.length - 1;
+      return Math.round(startIdx + ratio * (endIdx - startIdx));
+    }
+
+    function setPinnedIndex(idx) {
+      pinnedIdx = idx;
+      const activeData = getActiveSlice();
+      const badge = document.getElementById('pinnedNotice');
+      if (pinnedIdx !== null && pinnedIdx < activeData.months.length) {
+        document.getElementById('pinnedText').textContent = `已鎖定：${activeData.months[pinnedIdx]}`;
+        badge.classList.remove('hidden');
+        updateKPIsAndSummary(pinnedIdx);
+        updateTooltip();
+      } else {
+        pinnedIdx = null;
+        badge.classList.add('hidden');
+        updateKPIsAndSummary(hoverIdx);
+        if (hoverIdx === null) {
+          document.getElementById('chartTooltip').classList.add('hidden');
+        }
+      }
+      drawChart();
+    }
+
+    function runEtfCalculation() {
+      const presetKey = document.getElementById('calcMarket').value;
+      const preset = FUNDAMENTAL_PRESETS[presetKey] || FUNDAMENTAL_PRESETS.us_large;
+      const gPb = parseFloat(document.getElementById('calcGrowthVal').value);
+      const vPb = parseFloat(document.getElementById('calcValueVal').value);
+      const gPe = parseFloat(document.getElementById('calcGrowthPe').value);
+      const vPe = parseFloat(document.getElementById('calcValuePe').value);
+      if (!gPb || !vPb || gPb <= 0 || vPb <= 0) return null;
+
+      const pbRatio = gPb / vPb;
+      const peRatio = (gPe > 0 && vPe > 0) ? (gPe / vPe) : pbRatio;
+
+      // Composite log valuation spread (65% P/B + 35% P/E, matching AQR/Morningstar composite weighting)
+      const compLogSpread = 0.65 * Math.log(pbRatio) + 0.35 * Math.log(peRatio);
+      const z = (compLogSpread - preset.mu) / preset.sd;
+      const targetSeries = storeData[preset.tier][preset.mkt];
+      const pct = calcPercentile(targetSeries, z);
+
+      document.getElementById('calcRatioOut').textContent = `${pbRatio.toFixed(2)}x`;
+      document.getElementById('calcPeRatioOut').textContent = `${peRatio.toFixed(2)}x`;
+      document.getElementById('calcZOut').textContent = formatZ(z);
+      document.getElementById('calcPctOut').textContent = pct !== null ? `${pct.toFixed(1)}%` : '—';
+      return { tier: preset.tier, mkt: preset.mkt, z: Number(z.toFixed(2)) };
+    }
+
+    function showToast(msg) {
+      const el = document.getElementById('modalToast');
+      el.textContent = msg;
+      el.classList.remove('hidden');
+      setTimeout(() => {
+        el.classList.add('hidden');
+      }, 3800);
+    }
+
+    function upsertMonthRecord(monthStr, tier, usZ, devZ, emZ) {
+      const cleanedMonth = monthStr.trim().replace('-', '/');
+      if (!/^\d{4}\/(0[1-9]|1[0-2])$/.test(cleanedMonth)) {
+        showToast('請輸入正確的年月格式，例如 2026/11');
+        return false;
+      }
+      let idx = storeData.months.indexOf(cleanedMonth);
+      if (idx < 0) {
+        storeData.months.push(cleanedMonth);
+        idx = storeData.months.length - 1;
+        ['large', 'small', 'all'].forEach(t => {
+          ['us', 'dev', 'em'].forEach(m => {
+            storeData[t][m].push(storeData[t][m][idx - 1]);
+          });
+        });
+      }
+
+      if (!isNaN(usZ))  storeData[tier].us[idx]  = Number(usZ.toFixed(2));
+      if (!isNaN(devZ)) storeData[tier].dev[idx] = Number(devZ.toFixed(2));
+      if (!isNaN(emZ))  storeData[tier].em[idx]  = Number(emZ.toFixed(2));
+
+      // Recompute All-Cap as market-cap weighted synthesis if Large or Small was updated
+      if (tier === 'large' || tier === 'small') {
+        storeData.all.us[idx]  = Number((0.80 * storeData.large.us[idx]  + 0.20 * storeData.small.us[idx]).toFixed(2));
+        storeData.all.dev[idx] = Number((0.82 * storeData.large.dev[idx] + 0.18 * storeData.small.dev[idx]).toFixed(2));
+        storeData.all.em[idx]  = Number((0.84 * storeData.large.em[idx]  + 0.16 * storeData.small.em[idx]).toFixed(2));
+      }
+
+      saveData();
+      setPinnedIndex(null);
+      updateKPIsAndSummary(null);
+      drawChart();
+      return true;
+    }
+
+    function exportCsv() {
+      const activeData = getActiveSlice();
+      const rows = [
+        'Month,US_Large_Z,Dev_Large_Z,EM_Large_Z,US_Small_Z,Dev_Small_Z,EM_Small_Z,US_AllCap_Z,Dev_AllCap_Z,EM_AllCap_Z'
+      ];
+      for (let i = 0; i < activeData.months.length; i++) {
+        const vals = [
+          activeData.months[i],
+          activeData.large.us[i] ?? '',
+          activeData.large.dev[i] ?? '',
+          activeData.large.em[i] ?? '',
+          activeData.small.us[i] ?? '',
+          activeData.small.dev[i] ?? '',
+          activeData.small.em[i] ?? '',
+          activeData.all.us[i] ?? '',
+          activeData.all.dev[i] ?? '',
+          activeData.all.em[i] ?? ''
+        ];
+        rows.push(vals.join(','));
+      }
+      const blob = new Blob([rows.join('\n')], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Value_Spread_MultiCap_${activeData.months[activeData.months.length - 1].replace('/', '')}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+
+    function setCapMode(newMode) {
+      capMode = newMode;
+      document.querySelectorAll('.cap-btn').forEach(b => {
+        if (b.getAttribute('data-capmode') === newMode) {
+          b.className = 'cap-btn px-2.5 py-1 rounded-lg text-xs font-bold bg-slate-900 text-white shadow-2xs transition';
+        } else {
+          b.className = 'cap-btn px-2.5 py-1 rounded-lg text-xs font-medium bg-white text-slate-700 border border-slate-200 hover:bg-slate-100 transition';
+        }
+      });
+      updateKPIsAndSummary(pinnedIdx !== null ? pinnedIdx : hoverIdx);
+      drawChart();
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      loadData();
+      updateKPIsAndSummary(null);
+      drawChart();
+
+      window.addEventListener('resize', () => {
+        drawChart();
+      });
+
+      // Cap Mode Buttons
+      document.querySelectorAll('.cap-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          setCapMode(btn.getAttribute('data-capmode'));
+        });
+      });
+
+      // Click on Summary Table row to switch cap tier view
+      document.getElementById('summaryTableBody').addEventListener('click', (e) => {
+        const tr = e.target.closest('tr[data-rowtier]');
+        if (tr) {
+          const tier = tr.getAttribute('data-rowtier');
+          setCapMode(tier);
+        }
+      });
+
+      // Horizon Mode Toggle buttons
+      const btnModeLive = document.getElementById('btnModeLive');
+      const btnModeAqrOnly = document.getElementById('btnModeAqrOnly');
+      btnModeLive.addEventListener('click', () => {
+        displayMode = 'live';
+        btnModeLive.className = 'px-2.5 py-1 rounded-md text-xs font-bold bg-white text-slate-900 shadow-2xs transition';
+        btnModeAqrOnly.className = 'px-2.5 py-1 rounded-md text-xs font-medium text-slate-600 hover:text-slate-900 transition';
+        setPinnedIndex(null);
+      });
+      btnModeAqrOnly.addEventListener('click', () => {
+        displayMode = 'aqr_only';
+        btnModeAqrOnly.className = 'px-2.5 py-1 rounded-md text-xs font-bold bg-white text-slate-900 shadow-2xs transition';
+        btnModeLive.className = 'px-2.5 py-1 rounded-md text-xs font-medium text-slate-600 hover:text-slate-900 transition';
+        setPinnedIndex(null);
+      });
+
+      // Scroll to Audit & Fundamental Verification Box
+      document.getElementById('btnSyncLiveNow').addEventListener('click', () => {
+        const el = document.getElementById('auditSection');
+        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      });
+
+      // Toggle market visibility on KPI card click
+      [
+        { id: 'cardUs', key: 'us' },
+        { id: 'cardDev', key: 'dev' },
+        { id: 'cardEm', key: 'em' }
+      ].forEach(item => {
+        document.getElementById(item.id).addEventListener('click', () => {
+          const activeCount = Object.values(visibleMarkets).filter(Boolean).length;
+          if (visibleMarkets[item.key] && activeCount === 1) return;
+          visibleMarkets[item.key] = !visibleMarkets[item.key];
+          updateKPIsAndSummary(pinnedIdx !== null ? pinnedIdx : hoverIdx);
+          drawChart();
+        });
+      });
+
+      // Range filter buttons
+      document.querySelectorAll('.range-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          startYearFilter = btn.getAttribute('data-range');
+          document.querySelectorAll('.range-btn').forEach(b => {
+            b.className = 'range-btn px-2.5 py-1 rounded-md text-xs font-medium bg-slate-100 text-slate-600 hover:bg-slate-200 transition';
+          });
+          btn.className = 'range-btn px-2.5 py-1 rounded-md text-xs font-semibold bg-slate-900 text-white transition';
+          drawChart();
+        });
+      });
+
+      // Historical event toggle
+      const btnEvents = document.getElementById('btnToggleEvents');
+      btnEvents.addEventListener('click', () => {
+        showHistoricalEvents = !showHistoricalEvents;
+        btnEvents.textContent = `歷史事件標記：${showHistoricalEvents ? '開' : '關'}`;
+        btnEvents.className = showHistoricalEvents
+          ? 'ml-1 px-2.5 py-1 rounded-md text-xs font-semibold bg-slate-800 text-white transition'
+          : 'ml-1 px-2.5 py-1 rounded-md text-xs font-medium bg-slate-100 text-slate-600 hover:bg-slate-200 transition';
+        drawChart();
+      });
+
+      // Chart hover & click-to-pin
+      const canvas = document.getElementById('spreadChart');
+      canvas.addEventListener('mousemove', (e) => {
+        hoverIdx = getIdxFromMouseEvent(e);
+        if (pinnedIdx === null) {
+          updateKPIsAndSummary(hoverIdx);
+        }
+        drawChart();
+        updateTooltip();
+      });
+
+      canvas.addEventListener('mouseleave', () => {
+        hoverIdx = null;
+        if (pinnedIdx === null) {
+          updateKPIsAndSummary(null);
+          document.getElementById('chartTooltip').classList.add('hidden');
+        }
+        drawChart();
+      });
+
+      canvas.addEventListener('click', (e) => {
+        const idx = getIdxFromMouseEvent(e);
+        if (pinnedIdx === idx) {
+          setPinnedIndex(null);
+        } else {
+          setPinnedIndex(idx);
+        }
+      });
+
+      document.getElementById('btnClearPin').addEventListener('click', () => {
+        setPinnedIndex(null);
+      });
+
+      // Quick jump buttons
+      document.querySelectorAll('.jump-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const target = btn.getAttribute('data-jump');
+          if (target === 'latest') {
+            setPinnedIndex(null);
+          } else {
+            const activeData = getActiveSlice();
+            const idx = activeData.months.indexOf(target);
+            if (idx >= 0) {
+              setPinnedIndex(idx);
+            }
+          }
+        });
+      });
+
+      // Timeline scrubber
+      document.getElementById('monthScrubber').addEventListener('input', (e) => {
+        const idx = parseInt(e.target.value, 10);
+        if (!isNaN(idx)) {
+          setPinnedIndex(idx);
+        }
+      });
+
+      // Modal controls
+      const modal = document.getElementById('updaterModal');
+      document.getElementById('btnOpenUpdater').addEventListener('click', () => {
+        modal.classList.remove('hidden');
+        runEtfCalculation();
+      });
+      document.getElementById('btnCloseUpdater').addEventListener('click', () => {
+        modal.classList.add('hidden');
+      });
+
+      // Modal tabs
+      const tabs = [
+        { btn: 'tabBtnEtfCalc', panel: 'tabPanelEtfCalc' },
+        { btn: 'tabBtnAddMonth', panel: 'tabPanelAddMonth' },
+        { btn: 'tabBtnCsvImport', panel: 'tabPanelCsvImport' }
+      ];
+      tabs.forEach(t => {
+        document.getElementById(t.btn).addEventListener('click', () => {
+          tabs.forEach(other => {
+            document.getElementById(other.panel).classList.add('hidden');
+            document.getElementById(other.btn).className = 'px-3 py-2 text-xs font-medium border-b-2 border-transparent text-slate-500 hover:text-slate-800 whitespace-nowrap';
+          });
+          document.getElementById(t.panel).classList.remove('hidden');
+          document.getElementById(t.btn).className = 'px-3 py-2 text-xs font-bold border-b-2 border-slate-900 text-slate-900 whitespace-nowrap';
+        });
+      });
+
+      // Populate preset P/B and P/E when user switches market in Calculator
+      document.getElementById('calcMarket').addEventListener('change', (e) => {
+        const p = FUNDAMENTAL_PRESETS[e.target.value];
+        if (p) {
+          document.getElementById('calcGrowthVal').value = p.gPb;
+          document.getElementById('calcValueVal').value  = p.vPb;
+          document.getElementById('calcGrowthPe').value  = p.gPe;
+          document.getElementById('calcValuePe').value   = p.vPe;
+          runEtfCalculation();
+        }
+      });
+
+      ['calcGrowthVal', 'calcValueVal', 'calcGrowthPe', 'calcValuePe'].forEach(id => {
+        document.getElementById(id).addEventListener('input', runEtfCalculation);
+      });
+
+      document.getElementById('btnApplyCalcToInput').addEventListener('click', () => {
+        const res = runEtfCalculation();
+        if (!res) return;
+        document.getElementById('inputCapTier').value = res.tier;
+        if (res.mkt === 'us')  document.getElementById('inputUsZ').value  = res.z;
+        if (res.mkt === 'dev') document.getElementById('inputDevZ').value = res.z;
+        if (res.mkt === 'em')  document.getElementById('inputEmZ').value  = res.z;
+        document.getElementById('tabBtnAddMonth').click();
+        showToast('已將官方基本面倍數推算的 Z-score 帶入更新表單！');
+      });
+
+      // Save single month
+      document.getElementById('btnSaveMonth').addEventListener('click', () => {
+        const m = document.getElementById('inputMonth').value;
+        const tier = document.getElementById('inputCapTier').value;
+        const u = parseFloat(document.getElementById('inputUsZ').value);
+        const d = parseFloat(document.getElementById('inputDevZ').value);
+        const e = parseFloat(document.getElementById('inputEmZ').value);
+        if (upsertMonthRecord(m, tier, u, d, e)) {
+          showToast(`已成功儲存 ${m} (${tier === 'large' ? '大型股' : tier === 'small' ? '小型股' : '全市場'}) 數據！`);
+        }
+      });
+
+      // CSV Batch Import
+      document.getElementById('btnImportCsvText').addEventListener('click', () => {
+        const raw = document.getElementById('csvTextarea').value.trim();
+        if (!raw) {
+          showToast('請先在文字框貼上 CSV 資料');
+          return;
+        }
+        const lines = raw.split(/\r?\n/);
+        let imported = 0;
+        lines.forEach(line => {
+          const parts = line.split(',').map(s => s.trim());
+          if (parts.length >= 4 && /^\d{4}[\/-](0[1-9]|1[0-2])$/.test(parts[0])) {
+            upsertMonthRecord(parts[0], 'large', parseFloat(parts[1]), parseFloat(parts[2]), parseFloat(parts[3]));
+            if (parts.length >= 7) {
+              upsertMonthRecord(parts[0], 'small', parseFloat(parts[4]), parseFloat(parts[5]), parseFloat(parts[6]));
+            }
+            imported++;
+          }
+        });
+        if (imported > 0) {
+          showToast(`已成功批次匯入 ${imported} 筆月份資料！`);
+        } else {
+          showToast('未偵測到符合格式的資料列');
+        }
+      });
+
+      // Reset to default
+      document.getElementById('btnResetDefault').addEventListener('click', () => {
+        storeData = cloneInitialData();
+        saveData();
+        setPinnedIndex(null);
+        updateKPIsAndSummary(null);
+        drawChart();
+        showToast('已重置為預設完整資料！');
+      });
+
+      // Export CSV
+      document.getElementById('btnExportCsv').addEventListener('click', exportCsv);
+
+
+
+      // Parse URL hash parameters if shared link has #cap=...&range=...&pin=...
+      try {
+        if (window.location.hash && window.location.hash.length > 1) {
+          const params = new URLSearchParams(window.location.hash.substring(1));
+          if (params.get('cap')) setCapMode(params.get('cap'));
+          if (params.get('range')) {
+            startYearFilter = params.get('range');
+            drawChart();
+          }
+          if (params.get('pin')) {
+            const pIdx = storeData.months.indexOf(params.get('pin'));
+            if (pIdx >= 0) setPinnedIndex(pIdx);
+          }
+        }
+      } catch (e) {}
+
+      // Deploy Modal Controls
+      const deployModal = document.getElementById('deployModal');
+      document.getElementById('btnOpenDeploy').addEventListener('click', () => {
+        deployModal.classList.remove('hidden');
+      });
+      document.getElementById('btnCloseDeploy').addEventListener('click', () => {
+        deployModal.classList.add('hidden');
+      });
+
+      function showDeployToast(msg) {
+        const t = document.getElementById('deployToast');
+        t.textContent = msg;
+        t.classList.remove('hidden');
+        setTimeout(() => t.classList.add('hidden'), 3500);
+      }
+
+      document.getElementById('btnDownloadHtml').addEventListener('click', () => {
+        const htmlContent = '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
+        const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'index.html';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        showDeployToast('已下載 index.html！可直接拖曳至 Netlify Drop 或上傳至 GitHub Pages。');
+      });
+
+      document.getElementById('btnCopyShareHash').addEventListener('click', () => {
+        const activeData = getActiveSlice();
+        const pinMonth = pinnedIdx !== null ? activeData.months[pinnedIdx] : '';
+        const hashStr = `#cap=${encodeURIComponent(capMode)}&range=${encodeURIComponent(startYearFilter)}${pinMonth ? '&pin=' + encodeURIComponent(pinMonth) : ''}`;
+        const shareUrl = window.location.origin + window.location.pathname + hashStr;
+        try {
+          window.location.hash = hashStr;
+        } catch (e) {}
+        const tempInput = document.createElement('input');
+        tempInput.value = shareUrl;
+        document.body.appendChild(tempInput);
+        tempInput.select();
+        document.execCommand('copy');
+        document.body.removeChild(tempInput);
+        showDeployToast('已複製包含當前視角參數的網址：' + hashStr);
+      });
+
+    });
+  </script>
+</body>
+</html>
